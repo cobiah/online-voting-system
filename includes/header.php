@@ -12,7 +12,7 @@ if (session_status() === PHP_SESSION_NONE) {
 
     <!-- Correct CSS path -->
     <link rel="stylesheet" type="text/css" href="/voting_system/assets/css/style.css">
-<img src="/voting_system/assets/images/logo.png" alt="Voting System Logo" style="height:50px;">
+<img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQKjG9DpS_XhtP_Km-LpGJXoWESlsIwz07Uo0sHbFYC_w&s" alt="Voting System Logo" style="height:50px;">
 
 </head>
 
