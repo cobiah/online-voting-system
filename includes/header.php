@@ -3,38 +3,64 @@
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
+
+$baseUrl = '/voting_system';
+$isStudent = isset($_SESSION['student_id']);
+$isAdmin = isset($_SESSION['admin']);
+
+$activePage = basename($_SERVER['SCRIPT_NAME']);
+function navActive(string $page): string {
+    global $activePage;
+    return $activePage === $page ? 'active' : '';
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Secure Voting System</title>
 
-    <!-- Correct CSS path -->
-    <link rel="stylesheet" type="text/css" href="/voting_system/assets/css/style.css">
-<img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQKjG9DpS_XhtP_Km-LpGJXoWESlsIwz07Uo0sHbFYC_w&s" alt="Voting System Logo" style="height:50px;">
-
+    <link rel="stylesheet" type="text/css" href="<?= $baseUrl ?>/assets/css/style.css">
 </head>
 
 <body>
-    <header>
-        <h1>Secure Online Voting System</h1>
+    <header class="site-header">
+        <div class="site-brand">
+            <img src="<?= $baseUrl ?>/assets/images/logo.png" alt="Voting System Logo">
+            <div>
+                <h1>Secure Voting System</h1>
+                <p style="margin:0; font-size:0.85rem; color: rgba(0,0,0,0.6);">Tertiary Institution Elections</p>
+            </div>
+        </div>
 
-        <nav>
-            <a href="/voting_system/index.php">Home</a> |
-            <a href="/voting_system/frontend/register.html">Register</a> |
-            <a href="/voting_system/frontend/login.html">Login</a> |
-            <a href="/voting_system/frontend/vote.html">Vote</a> |
-            <a href="/voting_system/frontend/results.html">Results</a> |
-            <a href="/voting_system/frontend/admin_login.html">Admin</a>
+        <nav class="site-nav">
+            <a href="<?= $baseUrl ?>/index.php" class="<?= navActive('index.php') ?>">Home</a>
+            <a href="<?= $baseUrl ?>/frontend/vote.php" class="<?= navActive('vote.php') ?>">Elections</a>
+            <a href="#how" class="<?= $activePage === 'index.php' ? 'active' : '' ?>">How It Works</a>
+            <a href="<?= $baseUrl ?>/frontend/results.php" class="<?= navActive('results.php') ?>">Results</a>
 
-            <?php
-            // Show logout only when logged in
-            if (isset($_SESSION['student_id']) || isset($_SESSION['admin'])) {
-                echo ' | <a href="/voting_system/backend/logout.php">Logout</a>';
-            }
-            ?>
+            <?php if ($isStudent): ?>
+                <a href="<?= $baseUrl ?>/frontend/dashboard.php" class="<?= navActive('dashboard.php') ?>">Dashboard</a>
+                <a href="<?= $baseUrl ?>/backend/logout.php" class="button button-secondary">Logout</a>
+            <?php else: ?>
+                <a href="<?= $baseUrl ?>/frontend/login.php" class="button button-secondary">Login</a>
+                <a href="<?= $baseUrl ?>/frontend/register.php" class="button button-danger">Register</a>
+            <?php endif; ?>
+
+            <?php if ($isAdmin): ?>
+                <a href="<?= $baseUrl ?>/frontend/admin_dashboard.php" class="<?= navActive('admin_dashboard.php') ?>">Admin</a>
+            <?php else: ?>
+                <a href="<?= $baseUrl ?>/frontend/admin_login.php" class="<?= navActive('admin_login.php') ?>">Admin</a>
+            <?php endif; ?>
         </nav>
     </header>
 
-    <main>
+    <main class="main">
+        <?php if (!empty($_SESSION['flash'])): ?>
+            <div class="alert <?= htmlspecialchars($_SESSION['flash']['type']) ?>">
+                <span class="icon"><?= $_SESSION['flash']['type'] === 'success' ? '✅' : '⚠️' ?></span>
+                <span><?= htmlspecialchars($_SESSION['flash']['message']) ?></span>
+            </div>
+            <?php unset($_SESSION['flash']); ?>
+        <?php endif; ?>

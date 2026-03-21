@@ -1,7 +1,7 @@
     </main>
 
-    <footer>
-        <p>&copy; 2026 Secure Voting System | Embu University</p>
+    <footer class="footer">
+        <p>&copy; <?= date('Y'); ?> Secure Voting System | Embu University</p>
     </footer>
 
     <!-- Global JavaScript file -->

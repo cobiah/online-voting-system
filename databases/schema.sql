@@ -7,9 +7,10 @@ USE voting_system;
 -- =========================
 CREATE TABLE students (
     student_id INT PRIMARY KEY AUTO_INCREMENT,
-    reg_no VARCHAR(20) UNIQUE NOT NULL,
+    reg_no VARCHAR(50) UNIQUE NOT NULL,
     full_name VARCHAR(100) NOT NULL,
     email VARCHAR(100) UNIQUE,
+    password_hash VARCHAR(255) NOT NULL,
     department VARCHAR(100),
     year_of_study INT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -20,11 +21,9 @@ CREATE TABLE students (
 -- =========================
 CREATE TABLE candidates (
     candidate_id INT PRIMARY KEY AUTO_INCREMENT,
-    student_id INT,
+    name VARCHAR(100) NOT NULL,
     position VARCHAR(100) NOT NULL,
-    manifesto TEXT,
-    FOREIGN KEY (student_id) REFERENCES students(student_id)
-        ON DELETE CASCADE
+    manifesto TEXT
 );
 
 -- =========================
@@ -32,14 +31,15 @@ CREATE TABLE candidates (
 -- =========================
 CREATE TABLE votes (
     vote_id INT PRIMARY KEY AUTO_INCREMENT,
-    voter_id INT,
+    student_id INT,
     candidate_id INT,
+    position VARCHAR(100) NOT NULL,
     vote_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (voter_id) REFERENCES students(student_id)
+    FOREIGN KEY (student_id) REFERENCES students(student_id)
         ON DELETE CASCADE,
     FOREIGN KEY (candidate_id) REFERENCES candidates(candidate_id)
         ON DELETE CASCADE,
-    UNIQUE (voter_id)  -- Prevent double voting
+    UNIQUE (student_id, position)  -- Prevent double voting per position
 );
 
 -- =========================
@@ -47,9 +47,9 @@ CREATE TABLE votes (
 -- =========================
 CREATE TABLE audit_log (
     log_id INT PRIMARY KEY AUTO_INCREMENT,
-    action_type VARCHAR(50),
-    description TEXT,
-    action_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    action VARCHAR(255),
+    user_id INT
 );
 
 -- =========================
@@ -57,7 +57,9 @@ CREATE TABLE audit_log (
 -- =========================
 CREATE TABLE integrity (
     integrity_id INT PRIMARY KEY AUTO_INCREMENT,
-    hash_value VARCHAR(255),
+    vote_id INT,
+    vote_hash VARCHAR(255),
     verified BOOLEAN DEFAULT TRUE,
-    checked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    checked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (vote_id) REFERENCES votes(vote_id) ON DELETE CASCADE
 );
