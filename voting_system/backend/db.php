@@ -269,10 +269,10 @@ try {
         $conn = @new mysqli($host, $user, '', $dbname, $port);
         if ($conn->connect_errno) {
             // Fallback if root actually has a password configured with env variable
-            $conn = new mysqli($host, $user, $pass, $dbname, $port);
+            $conn = @new mysqli($host, $user, $pass, $dbname, $port);
         }
     } else {
-        $conn = new mysqli($host, $user, $pass, $dbname, $port);
+        $conn = @new mysqli($host, $user, $pass, $dbname, $port);
     }
 
     if ($conn->connect_errno) {
