@@ -1,6 +1,10 @@
-FROM php:8.2-apache
+FROM composer:2 AS composer_deps
 
-COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+WORKDIR /app
+COPY composer.json /app/composer.json
+RUN composer install --no-dev --prefer-dist --no-interaction --optimize-autoloader --ignore-platform-req=ext-mongodb
+
+FROM php:8.2-apache
 
 RUN apt-get update \
     && apt-get install -y git unzip libssl-dev pkg-config \
@@ -11,8 +15,7 @@ RUN apt-get update \
 WORKDIR /var/www/html
 
 COPY . /var/www/html
-
-RUN composer install --no-dev --prefer-dist --no-interaction --optimize-autoloader
+COPY --from=composer_deps /app/vendor /var/www/html/vendor
 
 RUN mkdir -p /var/www/html/assets/images/candidates
 RUN chown -R www-data:www-data /var/www/html/assets/images/candidates
