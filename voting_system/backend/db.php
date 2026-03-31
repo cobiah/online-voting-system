@@ -24,20 +24,29 @@ use MongoDB\Operation\FindOneAndUpdate;
 
 define('VOTE_ENCRYPTION_KEY', getenv('VOTE_ENCRYPTION_KEY') ?: 'ChangeThisSecurely2026!');
 
+$conn = null;
+$db_error = null;
+
 function db_now(): string
 {
     return date('Y-m-d H:i:s');
 }
 
-function db(Database $conn): Database
+function db(?Database $conn): ?Database
 {
     return $conn;
 }
 
 function db_collection(string $name): Collection
 {
-    global $conn;
-    return db($conn)->selectCollection($name);
+    global $conn, $db_error;
+
+    $database = db($conn);
+    if (!$database) {
+        throw new RuntimeException('Database is unavailable' . ($db_error ? ': ' . $db_error : '.'));
+    }
+
+    return $database->selectCollection($name);
 }
 
 function db_next_id(string $name): int

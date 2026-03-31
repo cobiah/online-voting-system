@@ -3,6 +3,15 @@ session_start();
 include 'db.php';
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
+    if (!database_ready($conn)) {
+        $_SESSION['flash'] = [
+            'type' => 'error',
+            'message' => 'Admin login is temporarily unavailable because the database connection is down.'
+        ];
+        header("Location: ../frontend/admin_login.php");
+        exit;
+    }
+
     $username = trim($_POST['username'] ?? '');
     $password = $_POST['password'] ?? '';
 

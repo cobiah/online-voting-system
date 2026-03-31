@@ -3,6 +3,15 @@ include 'db.php';
 session_start();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!database_ready($conn)) {
+        $_SESSION['flash'] = [
+            'type' => 'error',
+            'message' => 'Registration is temporarily unavailable because the database connection is down.'
+        ];
+        header('Location: ../frontend/register.php');
+        exit;
+    }
+
     if (!isset($_POST['csrf_token']) || !verify_csrf_token($_POST['csrf_token'])) {
         $_SESSION['flash'] = [
             'type' => 'error',

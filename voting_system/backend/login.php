@@ -3,6 +3,15 @@ include 'db.php';
 session_start();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!database_ready($conn)) {
+        $_SESSION['flash'] = [
+            'type' => 'error',
+            'message' => 'Login is temporarily unavailable because the database connection is down.'
+        ];
+        header("Location: ../frontend/login.php");
+        exit;
+    }
+
     $email = trim($_POST['email'] ?? '');
     $password = $_POST['password'] ?? '';
 
