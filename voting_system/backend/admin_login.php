@@ -19,16 +19,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         exit;
     }
 
-    $stmt = $conn->prepare("SELECT admin_id, password_hash FROM admins WHERE username = ?");
-    $stmt->bind_param("s", $username);
-    $stmt->execute();
-    $stmt->store_result();
-    $stmt->bind_result($admin_id, $password_hash);
-    $stmt->fetch();
+    $admin = db_find_admin_by_username($username);
 
-    if ($stmt->num_rows > 0 && password_verify($password, $password_hash)) {
+    if ($admin && password_verify($password, (string) $admin['password_hash'])) {
         $_SESSION['admin'] = true;
-        $_SESSION['admin_id'] = $admin_id;
+        $_SESSION['admin_id'] = (int) $admin['admin_id'];
         $_SESSION['admin_username'] = $username;
 
         // Regenerate session ID to prevent session fixation

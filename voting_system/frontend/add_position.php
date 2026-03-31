@@ -14,17 +14,10 @@ include '../backend/db.php';
 
 $positions = [];
 $positionsError = null;
-$res = $conn->query('SELECT position_id, position_name, description FROM positions ORDER BY position_name');
-if ($res === false) {
-    if (str_contains($conn->error, "doesn't exist")) {
-        $positionsError = 'Database table `positions` does not exist. Please run the schema setup script or create the table manually.';
-    } else {
-        $positionsError = 'Unable to load positions: ' . htmlspecialchars($conn->error);
-    }
-} else {
-    while ($row = $res->fetch_assoc()) {
-        $positions[] = $row;
-    }
+try {
+    $positions = db_get_positions();
+} catch (Throwable $e) {
+    $positionsError = 'Unable to load positions: ' . htmlspecialchars($e->getMessage());
 }
 
 // Handle flash messages

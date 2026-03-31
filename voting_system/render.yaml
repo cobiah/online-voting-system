@@ -10,16 +10,10 @@ services:
         value: ""
       - key: PRESENTATION_MODE
         value: "0"
-      - key: DB_HOST
+      - key: MONGODB_URI
         sync: false
-      - key: DB_PORT
-        value: "3306"
-      - key: DB_NAME
-        sync: false
-      - key: DB_USER
-        sync: false
-      - key: DB_PASS
-        sync: false
+      - key: MONGODB_DB
+        value: "voting_system"
       - key: VOTE_ENCRYPTION_KEY
         generateValue: true
       - key: DEFAULT_ADMIN_USERNAME

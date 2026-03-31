@@ -8,14 +8,7 @@ $isPresentation = presentation_mode_enabled() && !database_ready($conn);
 if ($isPresentation) {
     $elections = presentation_elections();
 } else {
-    $res = $conn->query("SELECT election_id, title, description, start_date, end_date FROM elections WHERE is_active = 1 ORDER BY start_date ASC, created_at DESC");
-    if ($res === false) {
-        $electionsError = 'Unable to load upcoming elections. Please try again later.';
-    } else {
-        while ($row = $res->fetch_assoc()) {
-            $elections[] = $row;
-        }
-    }
+    $elections = db_get_active_home_elections();
 }
 ?><!DOCTYPE html>
 <html lang="en">

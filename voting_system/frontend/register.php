@@ -3,8 +3,7 @@
 
 <?php
 $departments = [];
-$deptRes = $conn->query('SELECT department_id, name FROM departments ORDER BY name');
-while ($row = $deptRes->fetch_assoc()) {
+foreach (db_get_departments() as $row) {
     $departments[] = $row;
 }
 ?>

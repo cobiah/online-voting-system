@@ -12,8 +12,8 @@ if (isset($_SESSION['student_id']) && !isset($_SESSION['admin'])) {
 
 include '../backend/db.php';
 
-$totalVoters = $conn->query('SELECT COUNT(*) AS total FROM students')->fetch_assoc()['total'] ?? 0;
-$votesCast = $conn->query('SELECT COUNT(*) AS total FROM votes')->fetch_assoc()['total'] ?? 0;
+$totalVoters = db_count_students();
+$votesCast = db_count_votes();
 
 ?>
 

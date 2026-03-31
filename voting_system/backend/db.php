@@ -1,348 +1,227 @@
 <?php
+
 require_once __DIR__ . '/../includes/app.php';
 require_once __DIR__ . '/../includes/presentation.php';
-$host = getenv('DB_HOST') ?: '127.0.0.1';
-$port = getenv('DB_PORT') ?: 3306;
-$user = getenv('DB_USER') ?: 'root';
-$pass = getenv('DB_PASS');
-$dbname = getenv('DB_NAME') ?: 'voting_system';
 
-// Normalize newline artifacts and null values
-$pass = is_string($pass) ? trim($pass) : '';
+$autoloadPath = dirname(__DIR__) . '/vendor/autoload.php';
 
-mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
-
-// Optional vote encryption key (store in environment for production)
-define('VOTE_ENCRYPTION_KEY', getenv('VOTE_ENCRYPTION_KEY') ?: 'ChangeThisSecurely2026!');
-
-if (!function_exists('schema_table_exists')) {
-    function schema_table_exists(mysqli $conn, string $table): bool {
-        $stmt = $conn->prepare("SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES WHERE table_schema = DATABASE() AND table_name = ?");
-        if (!$stmt) {
-            return false;
-        }
-
-        $stmt->bind_param('s', $table);
-        $stmt->execute();
-        $stmt->bind_result($count);
-        $stmt->fetch();
-        $stmt->close();
-
-        return $count > 0;
-    }
-}
-
-if (!function_exists('schema_column_exists')) {
-    function schema_column_exists(mysqli $conn, string $table, string $column): bool {
-        $stmt = $conn->prepare("SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE table_schema = DATABASE() AND table_name = ? AND column_name = ?");
-        if (!$stmt) {
-            return false;
-        }
-
-        $stmt->bind_param('ss', $table, $column);
-        $stmt->execute();
-        $stmt->bind_result($count);
-        $stmt->fetch();
-        $stmt->close();
-
-        return $count > 0;
-    }
-}
-
-if (!function_exists('add_column_if_missing')) {
-    function add_column_if_missing(mysqli $conn, string $table, string $column, string $definition): void {
-        if (!schema_column_exists($conn, $table, $column)) {
-            $conn->query("ALTER TABLE `$table` ADD COLUMN $definition");
-        }
-    }
-}
-
-if (!function_exists('ensure_project_schema')) {
-    function ensure_project_schema(mysqli $conn): void {
-        $conn->query("CREATE TABLE IF NOT EXISTS departments (
-            department_id INT PRIMARY KEY AUTO_INCREMENT,
-            name VARCHAR(150) UNIQUE NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-
-        $departments = [
-            'Department of Education',
-            'Department of Commercial Law',
-            'Department of Community Health',
-            'Department of Computing and Technology',
-            'Department of Nursing',
-            'Department of Business Administration',
-            'Department of Accountancy',
-            'Department of Human Resource Management',
-            'Department of Public Health',
-            'Department of Agriculture',
-            'Department of Environmental Studies',
-            'Department of Criminology',
-            'Department of Social Work',
-            'Department of Procurement and Logistics'
-        ];
-
-        $insertDept = $conn->prepare('INSERT IGNORE INTO departments (name) VALUES (?)');
-        if ($insertDept) {
-            foreach ($departments as $name) {
-                $insertDept->bind_param('s', $name);
-                $insertDept->execute();
-            }
-            $insertDept->close();
-        }
-
-        $conn->query("CREATE TABLE IF NOT EXISTS positions (
-            position_id INT PRIMARY KEY AUTO_INCREMENT,
-            position_name VARCHAR(100) UNIQUE NOT NULL,
-            description TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-
-        $positions = [
-            ['Male Delegate', 'Selected by male students in the department'],
-            ['Female Delegate', 'Selected by female students in the department'],
-            ['Departmental Delegate', 'Selected by all students in the department']
-        ];
-
-        $insertPos = $conn->prepare('INSERT IGNORE INTO positions (position_name, description) VALUES (?, ?)');
-        if ($insertPos) {
-            foreach ($positions as $position) {
-                $insertPos->bind_param('ss', $position[0], $position[1]);
-                $insertPos->execute();
-            }
-            $insertPos->close();
-        }
-
-        if (!schema_table_exists($conn, 'students')) {
-            $conn->query("CREATE TABLE students (
-                student_id INT PRIMARY KEY AUTO_INCREMENT,
-                reg_no VARCHAR(50) UNIQUE NOT NULL,
-                full_name VARCHAR(100) NOT NULL,
-                email VARCHAR(100) UNIQUE,
-                password_hash VARCHAR(255) NOT NULL,
-                department VARCHAR(100),
-                department_id INT DEFAULT NULL,
-                is_locked TINYINT(1) NOT NULL DEFAULT 0,
-                year_of_study INT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (department_id) REFERENCES departments(department_id) ON DELETE SET NULL
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-        } else {
-            add_column_if_missing($conn, 'students', 'department', "department VARCHAR(100)");
-            add_column_if_missing($conn, 'students', 'department_id', "department_id INT DEFAULT NULL");
-            add_column_if_missing($conn, 'students', 'is_locked', "is_locked TINYINT(1) NOT NULL DEFAULT 0");
-            add_column_if_missing($conn, 'students', 'year_of_study', "year_of_study INT");
-        }
-
-        if (!schema_table_exists($conn, 'admins')) {
-            $conn->query("CREATE TABLE admins (
-                admin_id INT PRIMARY KEY AUTO_INCREMENT,
-                username VARCHAR(50) UNIQUE NOT NULL,
-                password_hash VARCHAR(255) NOT NULL,
-                email VARCHAR(100) UNIQUE,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-        }
-
-        if (!schema_table_exists($conn, 'candidates')) {
-            $conn->query("CREATE TABLE candidates (
-                candidate_id INT PRIMARY KEY AUTO_INCREMENT,
-                student_id INT DEFAULT NULL,
-                name VARCHAR(100) NOT NULL,
-                position_id INT NOT NULL,
-                department VARCHAR(100),
-                department_id INT DEFAULT NULL,
-                gender ENUM('male','female','any') NOT NULL DEFAULT 'any',
-                manifesto TEXT,
-                image_url VARCHAR(255),
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (position_id) REFERENCES positions(position_id) ON DELETE CASCADE,
-                FOREIGN KEY (department_id) REFERENCES departments(department_id) ON DELETE SET NULL
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-        } else {
-            add_column_if_missing($conn, 'candidates', 'student_id', "student_id INT DEFAULT NULL");
-            add_column_if_missing($conn, 'candidates', 'department', "department VARCHAR(100)");
-            add_column_if_missing($conn, 'candidates', 'department_id', "department_id INT DEFAULT NULL");
-            add_column_if_missing($conn, 'candidates', 'gender', "gender ENUM('male','female','any') NOT NULL DEFAULT 'any'");
-            add_column_if_missing($conn, 'candidates', 'manifesto', "manifesto TEXT");
-            add_column_if_missing($conn, 'candidates', 'image_url', "image_url VARCHAR(255)");
-        }
-
-        if (!schema_table_exists($conn, 'votes')) {
-            $conn->query("CREATE TABLE votes (
-                vote_id INT PRIMARY KEY AUTO_INCREMENT,
-                student_id INT,
-                candidate_id INT,
-                position_id INT NOT NULL,
-                encrypted_ballot TEXT,
-                vote_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (student_id) REFERENCES students(student_id) ON DELETE CASCADE,
-                FOREIGN KEY (candidate_id) REFERENCES candidates(candidate_id) ON DELETE CASCADE,
-                FOREIGN KEY (position_id) REFERENCES positions(position_id) ON DELETE CASCADE,
-                UNIQUE KEY unique_student_position (student_id, position_id)
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-        } else {
-            add_column_if_missing($conn, 'votes', 'encrypted_ballot', "encrypted_ballot TEXT");
-        }
-
-        if (!schema_table_exists($conn, 'elections')) {
-            $conn->query("CREATE TABLE elections (
-                election_id INT PRIMARY KEY AUTO_INCREMENT,
-                title VARCHAR(150) NOT NULL,
-                description TEXT,
-                start_date DATE,
-                end_date DATE,
-                duration_hours INT DEFAULT NULL,
-                is_active TINYINT(1) NOT NULL DEFAULT 0,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-        }
-        add_column_if_missing($conn, 'elections', 'duration_hours', "duration_hours INT DEFAULT NULL");
-
-        if (!schema_table_exists($conn, 'audit_log')) {
-            $conn->query("CREATE TABLE audit_log (
-                log_id INT PRIMARY KEY AUTO_INCREMENT,
-                timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                action VARCHAR(255),
-                user_id INT
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-        }
-
-        if (!schema_table_exists($conn, 'integrity')) {
-            $conn->query("CREATE TABLE integrity (
-                integrity_id INT PRIMARY KEY AUTO_INCREMENT,
-                vote_id INT,
-                vote_hash VARCHAR(255),
-                verified BOOLEAN DEFAULT TRUE,
-                checked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (vote_id) REFERENCES votes(vote_id) ON DELETE CASCADE
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-        }
-
-        if (!schema_column_exists($conn, 'students', 'department_id') && schema_column_exists($conn, 'students', 'department')) {
-            $conn->query("ALTER TABLE students ADD COLUMN department_id INT DEFAULT NULL");
-        }
-    }
-}
-
-if (!function_exists('ensure_default_admin')) {
-    function ensure_default_admin(mysqli $conn): void {
-        $defaultAdminUsername = trim((string) getenv('DEFAULT_ADMIN_USERNAME'));
-        $defaultAdminPassword = (string) getenv('DEFAULT_ADMIN_PASSWORD');
-        $defaultAdminEmail = trim((string) getenv('DEFAULT_ADMIN_EMAIL'));
-
-        if ($defaultAdminUsername === '' || $defaultAdminPassword === '') {
-            return;
-        }
-
-        $checkStmt = $conn->prepare('SELECT admin_id FROM admins WHERE username = ? LIMIT 1');
-        if (!$checkStmt) {
-            return;
-        }
-
-        $checkStmt->bind_param('s', $defaultAdminUsername);
-        $checkStmt->execute();
-        $checkStmt->store_result();
-        $exists = $checkStmt->num_rows > 0;
-        $checkStmt->close();
-
-        if ($exists) {
-            return;
-        }
-
-        $passwordHash = password_hash($defaultAdminPassword, PASSWORD_BCRYPT);
-        $insertStmt = $conn->prepare('INSERT INTO admins (username, password_hash, email) VALUES (?, ?, ?)');
-        if (!$insertStmt) {
-            return;
-        }
-
-        $email = $defaultAdminEmail !== '' ? $defaultAdminEmail : null;
-        $insertStmt->bind_param('sss', $defaultAdminUsername, $passwordHash, $email);
-        $insertStmt->execute();
-        $insertStmt->close();
-    }
-}
-
-try {
-    if ($user === 'root' && $pass === '') {
-        // XAMPP default root has no password
-        $conn = @new mysqli($host, $user, '', $dbname, $port);
-        if ($conn->connect_errno) {
-            // Fallback if root actually has a password configured with env variable
-            $conn = @new mysqli($host, $user, $pass, $dbname, $port);
-        }
-    } else {
-        $conn = @new mysqli($host, $user, $pass, $dbname, $port);
-    }
-
-    if ($conn->connect_errno) {
-        throw new mysqli_sql_exception($conn->connect_error, $conn->connect_errno);
-    }
-
-    $conn->set_charset('utf8mb4');
-    ensure_project_schema($conn);
-    ensure_default_admin($conn);
-    // Voting open/close is now controlled only by admin actions.
-} catch (mysqli_sql_exception $e) {
+if (!file_exists($autoloadPath)) {
     if (presentation_mode_enabled()) {
         $conn = null;
-        $db_error = $e->getMessage();
-    } else {
-        die('Database connection failed: ' . $e->getMessage() . '. Make sure MySQL user/password in backend/db.php or environment variables are correct.');
+        $db_error = 'Composer dependencies are missing.';
+        return;
     }
+
+    die('Database connection failed: Composer dependencies are missing. Run composer install during deploy.');
 }
 
+require_once $autoloadPath;
 
+use MongoDB\Client;
+use MongoDB\Collection;
+use MongoDB\Database;
+use MongoDB\Operation\FindOneAndUpdate;
 
-if (!function_exists('deactivate_expired_elections')) {
-    function deactivate_expired_elections(mysqli $conn): void {
-        $today = date('Y-m-d');
-        $conn->query("UPDATE elections SET is_active = 0 WHERE is_active = 1 AND end_date IS NOT NULL AND end_date != '' AND end_date < '" . $conn->real_escape_string($today) . "'");
-    }
+define('VOTE_ENCRYPTION_KEY', getenv('VOTE_ENCRYPTION_KEY') ?: 'ChangeThisSecurely2026!');
+
+function db_now(): string
+{
+    return date('Y-m-d H:i:s');
 }
 
-if (!function_exists('encrypt_vote_payload')) {
-    function encrypt_vote_payload(string $payload): string {
-        $key = substr(hash('sha256', VOTE_ENCRYPTION_KEY, true), 0, 32);
-        $iv = substr(hash('sha256', 'iv_' . VOTE_ENCRYPTION_KEY, true), 0, 16);
-        $encrypted = openssl_encrypt($payload, 'AES-256-CBC', $key, OPENSSL_RAW_DATA, $iv);
-        return $encrypted === false ? '' : base64_encode($encrypted);
-    }
+function db(Database $conn): Database
+{
+    return $conn;
 }
 
-if (!function_exists('decrypt_vote_payload')) {
-    function decrypt_vote_payload(string $token): string {
-        $key = substr(hash('sha256', VOTE_ENCRYPTION_KEY, true), 0, 32);
-        $iv = substr(hash('sha256', 'iv_' . VOTE_ENCRYPTION_KEY, true), 0, 16);
-        $decoded = base64_decode($token, true);
-        return $decoded === false ? '' : (openssl_decrypt($decoded, 'AES-256-CBC', $key, OPENSSL_RAW_DATA, $iv) ?: '');
-    }
+function db_collection(string $name): Collection
+{
+    global $conn;
+    return db($conn)->selectCollection($name);
 }
 
-// Simple audit logging helper
-if (!function_exists('log_action')) {
-    /**
-     * Log an action to the audit_log table.
-     * @param mysqli $conn
-     * @param string $action
-     * @param int $user_id
-     */
-    function log_action($conn, $action, $user_id = 0) {
-        if (!($conn instanceof mysqli)) {
-            return;
+function db_next_id(string $name): int
+{
+    $doc = db_collection('counters')->findOneAndUpdate(
+        ['_id' => $name],
+        ['$inc' => ['seq' => 1]],
+        [
+            'upsert' => true,
+            'returnDocument' => FindOneAndUpdate::RETURN_DOCUMENT_AFTER,
+        ]
+    );
+
+    $data = $doc ? $doc->getArrayCopy() : [];
+    return (int) ($data['seq'] ?? 1);
+}
+
+function db_to_array($document): array
+{
+    if (is_object($document) && method_exists($document, 'getArrayCopy')) {
+        return $document->getArrayCopy();
+    }
+
+    if (is_object($document)) {
+        return get_object_vars($document);
+    }
+
+    return is_array($document) ? $document : [];
+}
+
+function db_find_one(string $collection, array $filter = [], array $options = []): ?array
+{
+    $doc = db_collection($collection)->findOne($filter, $options);
+    return $doc ? db_to_array($doc) : null;
+}
+
+function db_find_many(string $collection, array $filter = [], array $options = []): array
+{
+    $cursor = db_collection($collection)->find($filter, $options);
+    $rows = [];
+    foreach ($cursor as $document) {
+        $rows[] = db_to_array($document);
+    }
+    return $rows;
+}
+
+function db_insert(string $collection, array $document): array
+{
+    db_collection($collection)->insertOne($document);
+    return $document;
+}
+
+function db_update_one(string $collection, array $filter, array $update, array $options = []): int
+{
+    return db_collection($collection)->updateOne($filter, $update, $options)->getModifiedCount();
+}
+
+function db_update_many(string $collection, array $filter, array $update): int
+{
+    return db_collection($collection)->updateMany($filter, $update)->getModifiedCount();
+}
+
+function db_delete_one(string $collection, array $filter): int
+{
+    return db_collection($collection)->deleteOne($filter)->getDeletedCount();
+}
+
+function db_delete_many(string $collection, array $filter): int
+{
+    return db_collection($collection)->deleteMany($filter)->getDeletedCount();
+}
+
+function db_seed_defaults(): void
+{
+    $departments = [
+        'Department of Education',
+        'Department of Commercial Law',
+        'Department of Community Health',
+        'Department of Computing and Technology',
+        'Department of Nursing',
+        'Department of Business Administration',
+        'Department of Accountancy',
+        'Department of Human Resource Management',
+        'Department of Public Health',
+        'Department of Agriculture',
+        'Department of Environmental Studies',
+        'Department of Criminology',
+        'Department of Social Work',
+        'Department of Procurement and Logistics',
+    ];
+
+    foreach ($departments as $name) {
+        if (!db_find_one('departments', ['name' => $name])) {
+            db_insert('departments', [
+                'department_id' => db_next_id('departments'),
+                'name' => $name,
+                'created_at' => db_now(),
+            ]);
         }
+    }
 
-        $stmt = $conn->prepare("INSERT INTO audit_log (action, user_id) VALUES (?, ?)");
-        if (!$stmt) {
-            return;
+    $positions = [
+        ['Male Delegate', 'Selected by male students in the department'],
+        ['Female Delegate', 'Selected by female students in the department'],
+        ['Departmental Delegate', 'Selected by all students in the department'],
+    ];
+
+    foreach ($positions as [$name, $description]) {
+        if (!db_find_one('positions', ['position_name' => $name])) {
+            db_insert('positions', [
+                'position_id' => db_next_id('positions'),
+                'position_name' => $name,
+                'description' => $description,
+                'created_at' => db_now(),
+            ]);
         }
-
-        $stmt->bind_param("si", $action, $user_id);
-        $stmt->execute();
     }
 }
 
-// CSRF token helpers
+function ensure_default_admin(): void
+{
+    $username = trim((string) getenv('DEFAULT_ADMIN_USERNAME'));
+    $password = (string) getenv('DEFAULT_ADMIN_PASSWORD');
+    $email = trim((string) getenv('DEFAULT_ADMIN_EMAIL'));
+
+    if ($username === '' || $password === '') {
+        return;
+    }
+
+    if (db_find_one('admins', ['username' => $username])) {
+        return;
+    }
+
+    db_insert('admins', [
+        'admin_id' => db_next_id('admins'),
+        'username' => $username,
+        'password_hash' => password_hash($password, PASSWORD_BCRYPT),
+        'email' => $email,
+        'created_at' => db_now(),
+    ]);
+}
+
+function deactivate_expired_elections(): void
+{
+    $today = date('Y-m-d');
+    $rows = db_find_many('elections', ['is_active' => 1]);
+    foreach ($rows as $row) {
+        $endDate = (string) ($row['end_date'] ?? '');
+        if ($endDate !== '' && $endDate < $today) {
+            db_update_one('elections', ['election_id' => (int) $row['election_id']], ['$set' => ['is_active' => 0]]);
+        }
+    }
+}
+
+function encrypt_vote_payload(string $payload): string
+{
+    $key = substr(hash('sha256', VOTE_ENCRYPTION_KEY, true), 0, 32);
+    $iv = substr(hash('sha256', 'iv_' . VOTE_ENCRYPTION_KEY, true), 0, 16);
+    $encrypted = openssl_encrypt($payload, 'AES-256-CBC', $key, OPENSSL_RAW_DATA, $iv);
+    return $encrypted === false ? '' : base64_encode($encrypted);
+}
+
+function decrypt_vote_payload(string $token): string
+{
+    $key = substr(hash('sha256', VOTE_ENCRYPTION_KEY, true), 0, 32);
+    $iv = substr(hash('sha256', 'iv_' . VOTE_ENCRYPTION_KEY, true), 0, 16);
+    $decoded = base64_decode($token, true);
+    return $decoded === false ? '' : (openssl_decrypt($decoded, 'AES-256-CBC', $key, OPENSSL_RAW_DATA, $iv) ?: '');
+}
+
+function log_action($conn, $action, $user_id = 0): void
+{
+    if (!database_ready($conn)) {
+        return;
+    }
+
+    db_insert('audit_log', [
+        'log_id' => db_next_id('audit_log'),
+        'timestamp' => db_now(),
+        'action' => (string) $action,
+        'user_id' => (int) $user_id,
+    ]);
+}
+
 if (!function_exists('generate_csrf_token')) {
     function generate_csrf_token() {
         if (empty($_SESSION['csrf_token'])) {
@@ -357,4 +236,402 @@ if (!function_exists('verify_csrf_token')) {
         return isset($_SESSION['csrf_token']) && hash_equals($_SESSION['csrf_token'], $token);
     }
 }
-?>
+
+function db_get_departments(): array
+{
+    $rows = db_find_many('departments');
+    usort($rows, static fn(array $a, array $b): int => strcmp((string) $a['name'], (string) $b['name']));
+    return array_map(static fn(array $row): array => [
+        'department_id' => (int) $row['department_id'],
+        'name' => (string) $row['name'],
+    ], $rows);
+}
+
+function db_get_positions(): array
+{
+    $rows = db_find_many('positions');
+    usort($rows, static fn(array $a, array $b): int => strcmp((string) $a['position_name'], (string) $b['position_name']));
+    return array_map(static fn(array $row): array => [
+        'position_id' => (int) $row['position_id'],
+        'position_name' => (string) $row['position_name'],
+        'description' => (string) ($row['description'] ?? ''),
+    ], $rows);
+}
+
+function db_get_department_by_id(int $departmentId): ?array
+{
+    return db_find_one('departments', ['department_id' => $departmentId]);
+}
+
+function db_get_students_for_candidate_form(): array
+{
+    $rows = db_find_many('students');
+    usort($rows, static fn(array $a, array $b): int => strcmp((string) $a['full_name'], (string) $b['full_name']));
+    return array_map(static fn(array $row): array => [
+        'student_id' => (int) $row['student_id'],
+        'reg_no' => (string) $row['reg_no'],
+        'full_name' => (string) $row['full_name'],
+        'department' => (string) ($row['department'] ?? ''),
+    ], $rows);
+}
+
+function db_get_student_by_id(int $studentId): ?array
+{
+    return db_find_one('students', ['student_id' => $studentId]);
+}
+
+function db_find_student_by_email(string $email): ?array
+{
+    return db_find_one('students', ['email' => $email]);
+}
+
+function db_find_admin_by_username(string $username): ?array
+{
+    return db_find_one('admins', ['username' => $username]);
+}
+
+function db_student_exists_by_email_or_regno(string $email, string $regNo): bool
+{
+    return db_find_one('students', ['$or' => [['email' => $email], ['reg_no' => $regNo]]]) !== null;
+}
+
+function db_create_student(string $regNo, string $fullName, string $email, string $passwordHash, int $departmentId, string $departmentName): int
+{
+    $studentId = db_next_id('students');
+    db_insert('students', [
+        'student_id' => $studentId,
+        'reg_no' => $regNo,
+        'full_name' => $fullName,
+        'email' => $email,
+        'password_hash' => $passwordHash,
+        'department_id' => $departmentId,
+        'department' => $departmentName,
+        'is_locked' => 0,
+        'year_of_study' => null,
+        'created_at' => db_now(),
+    ]);
+    return $studentId;
+}
+
+function db_count_students(): int
+{
+    return count(db_find_many('students'));
+}
+
+function db_count_votes(): int
+{
+    return count(db_find_many('votes'));
+}
+
+function db_count_votes_for_student(int $studentId): int
+{
+    return count(db_find_many('votes', ['student_id' => $studentId]));
+}
+
+function db_get_current_election(): ?array
+{
+    $rows = db_find_many('elections', ['is_active' => 1]);
+    usort($rows, static function (array $a, array $b): int {
+        return strcmp((string) ($a['start_date'] ?? ''), (string) ($b['start_date'] ?? ''));
+    });
+    return $rows[0] ?? null;
+}
+
+function db_get_active_home_elections(): array
+{
+    $rows = db_find_many('elections', ['is_active' => 1]);
+    usort($rows, static function (array $a, array $b): int {
+        return strcmp((string) ($a['start_date'] ?? ''), (string) ($b['start_date'] ?? ''))
+            ?: strcmp((string) ($b['created_at'] ?? ''), (string) ($a['created_at'] ?? ''));
+    });
+    return array_map(static fn(array $row): array => [
+        'election_id' => (int) $row['election_id'],
+        'title' => (string) $row['title'],
+        'description' => (string) ($row['description'] ?? ''),
+        'start_date' => (string) ($row['start_date'] ?? ''),
+        'end_date' => (string) ($row['end_date'] ?? ''),
+    ], $rows);
+}
+
+function db_get_all_elections(): array
+{
+    $rows = db_find_many('elections');
+    usort($rows, static fn(array $a, array $b): int => strcmp((string) ($b['created_at'] ?? ''), (string) ($a['created_at'] ?? '')));
+    return array_map(static fn(array $row): array => [
+        'election_id' => (int) $row['election_id'],
+        'title' => (string) $row['title'],
+        'description' => (string) ($row['description'] ?? ''),
+        'start_date' => (string) ($row['start_date'] ?? ''),
+        'end_date' => (string) ($row['end_date'] ?? ''),
+        'duration_hours' => (int) ($row['duration_hours'] ?? 0),
+        'is_active' => (int) ($row['is_active'] ?? 0),
+    ], $rows);
+}
+
+function db_create_election(string $title, string $description, string $startDate, string $endDate, int $durationHours, int $isActive): int
+{
+    $electionId = db_next_id('elections');
+    db_insert('elections', [
+        'election_id' => $electionId,
+        'title' => $title,
+        'description' => $description,
+        'start_date' => $startDate,
+        'end_date' => $endDate,
+        'duration_hours' => $durationHours,
+        'is_active' => $isActive,
+        'created_at' => db_now(),
+    ]);
+    return $electionId;
+}
+
+function db_get_election_by_id(int $electionId): ?array
+{
+    return db_find_one('elections', ['election_id' => $electionId]);
+}
+
+function db_update_election_state(int $electionId, array $fields): int
+{
+    return db_update_one('elections', ['election_id' => $electionId], ['$set' => $fields]);
+}
+
+function db_start_all_elections(string $today): void
+{
+    $rows = db_find_many('elections');
+    foreach ($rows as $row) {
+        $startDate = (string) ($row['start_date'] ?? '');
+        if ($startDate === '') {
+            $startDate = $today;
+        }
+
+        $update = [
+            'is_active' => 1,
+            'start_date' => $startDate,
+        ];
+
+        $duration = (int) ($row['duration_hours'] ?? 0);
+        if ($duration > 0) {
+            $update['end_date'] = date('Y-m-d', strtotime($startDate . ' + ' . $duration . ' hours'));
+        }
+
+        db_update_election_state((int) $row['election_id'], $update);
+    }
+}
+
+function db_stop_all_elections(): void
+{
+    db_update_many('elections', [], ['$set' => ['is_active' => 0]]);
+}
+
+function db_find_position_by_name(string $positionName): ?array
+{
+    return db_find_one('positions', ['position_name' => $positionName]);
+}
+
+function db_create_position(string $positionName, string $description): int
+{
+    $positionId = db_next_id('positions');
+    db_insert('positions', [
+        'position_id' => $positionId,
+        'position_name' => $positionName,
+        'description' => $description,
+        'created_at' => db_now(),
+    ]);
+    return $positionId;
+}
+
+function db_delete_position(int $positionId): int
+{
+    $candidates = db_find_many('candidates', ['position_id' => $positionId]);
+    $candidateIds = array_map(static fn(array $row): int => (int) $row['candidate_id'], $candidates);
+
+    $votes = db_find_many('votes', ['position_id' => $positionId]);
+    $voteIds = array_map(static fn(array $row): int => (int) $row['vote_id'], $votes);
+
+    if (!empty($candidateIds)) {
+        db_delete_many('candidates', ['position_id' => $positionId]);
+    }
+
+    if (!empty($voteIds)) {
+        db_delete_many('integrity', ['vote_id' => ['$in' => $voteIds]]);
+        db_delete_many('votes', ['position_id' => $positionId]);
+    }
+
+    return db_delete_one('positions', ['position_id' => $positionId]);
+}
+
+function db_find_candidate_by_student_position(int $studentId, int $positionId): ?array
+{
+    return db_find_one('candidates', ['student_id' => $studentId, 'position_id' => $positionId]);
+}
+
+function db_create_candidate(?int $studentId, string $name, int $positionId, ?int $departmentId, string $department, string $gender, string $manifesto, string $imageUrl): int
+{
+    $candidateId = db_next_id('candidates');
+    db_insert('candidates', [
+        'candidate_id' => $candidateId,
+        'student_id' => $studentId,
+        'name' => $name,
+        'position_id' => $positionId,
+        'department_id' => $departmentId,
+        'department' => $department,
+        'gender' => $gender,
+        'manifesto' => $manifesto,
+        'image_url' => $imageUrl,
+        'created_at' => db_now(),
+    ]);
+    return $candidateId;
+}
+
+function db_delete_candidate(int $candidateId): int
+{
+    $votes = db_find_many('votes', ['candidate_id' => $candidateId]);
+    $voteIds = array_map(static fn(array $row): int => (int) $row['vote_id'], $votes);
+    if (!empty($voteIds)) {
+        db_delete_many('integrity', ['vote_id' => ['$in' => $voteIds]]);
+        db_delete_many('votes', ['candidate_id' => $candidateId]);
+    }
+    return db_delete_one('candidates', ['candidate_id' => $candidateId]);
+}
+
+function db_get_candidates_admin(): array
+{
+    $positions = db_get_positions();
+    $departments = db_get_departments();
+    $positionMap = [];
+    foreach ($positions as $position) {
+        $positionMap[$position['position_id']] = $position['position_name'];
+    }
+    $departmentMap = [];
+    foreach ($departments as $department) {
+        $departmentMap[$department['department_id']] = $department['name'];
+    }
+
+    $rows = db_find_many('candidates');
+    $mapped = array_map(static function (array $row) use ($positionMap, $departmentMap): array {
+        $departmentId = (int) ($row['department_id'] ?? 0);
+        return [
+            'candidate_id' => (int) $row['candidate_id'],
+            'name' => (string) $row['name'],
+            'position_name' => $positionMap[(int) $row['position_id']] ?? '',
+            'department' => $departmentMap[$departmentId] ?? (string) ($row['department'] ?? ''),
+            'gender' => (string) ($row['gender'] ?? 'any'),
+            'image_url' => (string) ($row['image_url'] ?? ''),
+            'manifesto' => (string) ($row['manifesto'] ?? ''),
+        ];
+    }, $rows);
+
+    usort($mapped, static fn(array $a, array $b): int => strcmp($a['position_name'], $b['position_name']) ?: strcmp($a['name'], $b['name']));
+    return $mapped;
+}
+
+function db_get_candidates_for_department(?int $departmentId, string $department): array
+{
+    if ($departmentId) {
+        $rows = db_find_many('candidates', ['department_id' => $departmentId]);
+    } elseif ($department !== '') {
+        $rows = db_find_many('candidates', ['department' => $department]);
+    } else {
+        $rows = db_find_many('candidates');
+    }
+
+    usort($rows, static fn(array $a, array $b): int => ((int) $a['position_id'] <=> (int) $b['position_id']) ?: strcmp((string) $a['name'], (string) $b['name']));
+
+    return array_map(static fn(array $row): array => [
+        'candidate_id' => (int) $row['candidate_id'],
+        'name' => (string) $row['name'],
+        'position_id' => (int) $row['position_id'],
+        'image_url' => (string) ($row['image_url'] ?? ''),
+        'manifesto' => (string) ($row['manifesto'] ?? ''),
+    ], $rows);
+}
+
+function db_find_candidate_for_position(int $candidateId, int $positionId): ?array
+{
+    return db_find_one('candidates', ['candidate_id' => $candidateId, 'position_id' => $positionId]);
+}
+
+function db_find_vote_for_student_position(int $studentId, int $positionId): ?array
+{
+    return db_find_one('votes', ['student_id' => $studentId, 'position_id' => $positionId]);
+}
+
+function db_create_vote(int $studentId, int $candidateId, int $positionId, string $encryptedBallot): int
+{
+    $voteId = db_next_id('votes');
+    db_insert('votes', [
+        'vote_id' => $voteId,
+        'student_id' => $studentId,
+        'candidate_id' => $candidateId,
+        'position_id' => $positionId,
+        'encrypted_ballot' => $encryptedBallot,
+        'vote_time' => db_now(),
+    ]);
+    return $voteId;
+}
+
+function db_create_integrity(int $voteId, string $voteHash, bool $verified = true): int
+{
+    $integrityId = db_next_id('integrity');
+    db_insert('integrity', [
+        'integrity_id' => $integrityId,
+        'vote_id' => $voteId,
+        'vote_hash' => $voteHash,
+        'verified' => $verified ? 1 : 0,
+        'checked_at' => db_now(),
+    ]);
+    return $integrityId;
+}
+
+function db_get_public_results(): array
+{
+    $positions = db_get_positions();
+    $positionMap = [];
+    foreach ($positions as $position) {
+        $positionMap[$position['position_id']] = $position['position_name'];
+    }
+
+    $votes = db_find_many('votes');
+    $voteTotals = [];
+    foreach ($votes as $vote) {
+        $candidateId = (int) $vote['candidate_id'];
+        $voteTotals[$candidateId] = ($voteTotals[$candidateId] ?? 0) + 1;
+    }
+
+    $rows = [];
+    foreach (db_find_many('candidates') as $candidate) {
+        $rows[] = [
+            'candidate_id' => (int) $candidate['candidate_id'],
+            'name' => (string) $candidate['name'],
+            'image_url' => (string) ($candidate['image_url'] ?? ''),
+            'position_name' => $positionMap[(int) $candidate['position_id']] ?? '',
+            'total_votes' => (int) ($voteTotals[(int) $candidate['candidate_id']] ?? 0),
+        ];
+    }
+
+    usort($rows, static fn(array $a, array $b): int => strcmp($a['position_name'], $b['position_name']) ?: ($b['total_votes'] <=> $a['total_votes']) ?: strcmp($a['name'], $b['name']));
+    return $rows;
+}
+
+try {
+    $mongoUri = trim((string) getenv('MONGODB_URI'));
+    $mongoDbName = trim((string) (getenv('MONGODB_DB') ?: 'voting_system'));
+
+    if ($mongoUri === '') {
+        throw new RuntimeException('MONGODB_URI is not set.');
+    }
+
+    $client = new Client($mongoUri);
+    $client->selectDatabase('admin')->command(['ping' => 1]);
+    $conn = $client->selectDatabase($mongoDbName);
+
+    db_seed_defaults();
+    ensure_default_admin();
+    deactivate_expired_elections();
+} catch (Throwable $e) {
+    if (presentation_mode_enabled()) {
+        $conn = null;
+        $db_error = $e->getMessage();
+    } else {
+        die('Database connection failed: ' . $e->getMessage() . '. Make sure MongoDB environment variables are correct.');
+    }
+}

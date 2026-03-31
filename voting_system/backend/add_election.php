@@ -47,12 +47,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $end_date = date('Y-m-d', strtotime($start_date . ' + ' . $duration_hours . ' hours'));
 
-    $stmt = $conn->prepare('INSERT INTO elections (title, description, start_date, end_date, duration_hours, is_active) VALUES (?, ?, ?, ?, ?, ?)');
-    if ($stmt) {
-        $stmt->bind_param('ssssii', $title, $description, $start_date, $end_date, $duration_hours, $is_active);
-        $stmt->execute();
-        $stmt->close();
-
+    try {
+        db_create_election($title, $description, $start_date, $end_date, $duration_hours, $is_active);
         if (function_exists('log_action')) {
             log_action($conn, 'Election added: ' . $title, 0);
         }
@@ -61,7 +57,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'type' => 'success',
             'message' => 'Election added successfully.'
         ];
-    } else {
+    } catch (Throwable $e) {
         $_SESSION['flash'] = [
             'type' => 'error',
             'message' => 'Unable to add election. Please try again.'

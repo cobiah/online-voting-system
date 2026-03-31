@@ -21,42 +21,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
-    $student_id = (int)$_SESSION['student_id'];
+    $student_id = (int) $_SESSION['student_id'];
     $votes = $_POST['candidate_id'] ?? [];
 
     $today = date('Y-m-d');
-    $electionStmt = $conn->prepare("SELECT election_id, start_date, end_date FROM elections WHERE is_active = 1 LIMIT 1");
-    if ($electionStmt) {
-        $electionStmt->execute();
-        $electionStmt->bind_result($election_id, $start_date, $end_date);
-        if ($electionStmt->fetch()) {
-            if ((!empty($start_date) && $today < $start_date) || (!empty($end_date) && $today > $end_date)) {
-                $_SESSION['flash'] = [
-                    'type' => 'error',
-                    'message' => 'Voting is not open at this time.'
-                ];
-                header('Location: ../frontend/dashboard.php');
-                exit;
-            }
-        } else {
-            $_SESSION['flash'] = [
-                'type' => 'error',
-                'message' => 'No active election is currently available.'
-            ];
-            header('Location: ../frontend/dashboard.php');
-            exit;
-        }
-        $electionStmt->close();
+    $currentElection = db_get_current_election();
+    if (!$currentElection) {
+        $_SESSION['flash'] = [
+            'type' => 'error',
+            'message' => 'No active election is currently available.'
+        ];
+        header('Location: ../frontend/dashboard.php');
+        exit;
     }
 
-    $voteCountStmt = $conn->prepare('SELECT COUNT(*) FROM votes WHERE student_id = ?');
-    $voteCountStmt->bind_param('i', $student_id);
-    $voteCountStmt->execute();
-    $voteCountStmt->bind_result($existingVoteCount);
-    $voteCountStmt->fetch();
-    $voteCountStmt->close();
+    $start_date = (string) ($currentElection['start_date'] ?? '');
+    $end_date = (string) ($currentElection['end_date'] ?? '');
+    if ((!empty($start_date) && $today < $start_date) || (!empty($end_date) && $today > $end_date)) {
+        $_SESSION['flash'] = [
+            'type' => 'error',
+            'message' => 'Voting is not open at this time.'
+        ];
+        header('Location: ../frontend/dashboard.php');
+        exit;
+    }
 
-    if ($existingVoteCount > 0) {
+    if (db_count_votes_for_student($student_id) > 0) {
         $_SESSION['flash'] = [
             'type' => 'error',
             'message' => 'You have already cast your vote and cannot vote again.'
@@ -65,29 +55,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
-    $isLocked = 0;
-    try {
-        $colStmt = $conn->prepare("SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE table_schema = DATABASE() AND table_name = 'students' AND column_name = ?");
-        $colStmt->bind_param('s', $fieldName);
-        $fieldName = 'is_locked';
-        $colStmt->execute();
-        $colStmt->bind_result($colCount);
-        $colStmt->fetch();
-        $colStmt->close();
-
-        if ($colCount > 0) {
-            $lockCheck = $conn->prepare('SELECT is_locked FROM students WHERE student_id = ?');
-            $lockCheck->bind_param('i', $student_id);
-            $lockCheck->execute();
-            $lockCheck->bind_result($isLocked);
-            $lockCheck->fetch();
-            $lockCheck->close();
-        }
-    } catch (mysqli_sql_exception $e) {
-        $isLocked = 0;
-    }
-
-    if ($isLocked) {
+    $student = db_get_student_by_id($student_id) ?? [];
+    if ((int) ($student['is_locked'] ?? 0) === 1) {
         $_SESSION['flash'] = [
             'type' => 'error',
             'message' => 'Your account has been locked. Contact an administrator for help.'
@@ -107,43 +76,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $errors = [];
     $recordedVotes = [];
-    $successCount = 0;
 
     foreach ($votes as $positionId => $candidateId) {
-        $positionId = (int)$positionId;
-        $candidateId = (int)$candidateId;
+        $positionId = (int) $positionId;
+        $candidateId = (int) $candidateId;
 
         if ($candidateId <= 0 || $positionId <= 0) {
             continue;
         }
 
-        $checkCandidate = $conn->prepare("SELECT candidate_id FROM candidates WHERE candidate_id = ? AND position_id = ?");
-        $checkCandidate->bind_param("ii", $candidateId, $positionId);
-        $checkCandidate->execute();
-        $checkCandidate->store_result();
-
-        if ($checkCandidate->num_rows === 0) {
-            $errors[] = "Invalid choice for position ID " . $positionId;
-            $checkCandidate->close();
+        if (!db_find_candidate_for_position($candidateId, $positionId)) {
+            $errors[] = 'Invalid choice for position ID ' . $positionId;
             continue;
         }
-        $checkCandidate->close();
 
-        $check = $conn->prepare("SELECT vote_id FROM votes WHERE student_id = ? AND position_id = ?");
-        $check->bind_param("ii", $student_id, $positionId);
-        $check->execute();
-        $check->store_result();
-
-        if ($check->num_rows > 0) {
-            $errors[] = "You have already voted for this position.";
-            $check->close();
+        if (db_find_vote_for_student_position($student_id, $positionId)) {
+            $errors[] = 'You have already voted for this position.';
             continue;
         }
-        $check->close();
 
         $recordedVotes[] = [
             'position_id' => $positionId,
-            'candidate_id' => $candidateId
+            'candidate_id' => $candidateId,
         ];
     }
 
@@ -157,45 +111,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     $encryptedBallot = encrypt_vote_payload(json_encode($recordedVotes));
+    $successCount = 0;
 
     foreach ($recordedVotes as $voteData) {
         $candidateId = $voteData['candidate_id'];
         $positionId = $voteData['position_id'];
-
-        $stmt = $conn->prepare("INSERT INTO votes (student_id, candidate_id, position_id, encrypted_ballot) VALUES (?, ?, ?, ?)");
-        $stmt->bind_param("iiis", $student_id, $candidateId, $positionId, $encryptedBallot);
-        $stmt->execute();
-
-        $vote_id = $stmt->insert_id;
-        $vote_hash = hash("sha256", $student_id . "-" . $positionId . "-" . $candidateId . "-" . $vote_id);
-
-        $stmt2 = $conn->prepare("INSERT INTO integrity (vote_id, vote_hash) VALUES (?, ?)");
-        $stmt2->bind_param("is", $vote_id, $vote_hash);
-        $stmt2->execute();
-
+        $vote_id = db_create_vote($student_id, $candidateId, $positionId, $encryptedBallot);
+        $vote_hash = hash('sha256', $student_id . '-' . $positionId . '-' . $candidateId . '-' . $vote_id);
+        db_create_integrity($vote_id, $vote_hash);
         $successCount++;
     }
 
     if ($successCount > 0 && function_exists('log_action')) {
-    log_action($conn, 'Vote cast (' . $successCount . ' positions)', $student_id);
-}
-
-if ($successCount === 0) {
-    $_SESSION['flash'] = [
-        'type' => 'error',
-        'message' => 'No votes were recorded. ' . implode(' ', $errors)
-    ];
-} else {
-    $message = 'Vote successfully cast';
-    if (!empty($errors)) {
-        $message .= '. Some positions were skipped: ' . implode(' ', $errors);
+        log_action($conn, 'Vote cast (' . $successCount . ' positions)', $student_id);
     }
 
-    $_SESSION['flash'] = [
-        'type' => 'success',
-        'message' => $message
-    ];
-}
+    if ($successCount === 0) {
+        $_SESSION['flash'] = [
+            'type' => 'error',
+            'message' => 'No votes were recorded. ' . implode(' ', $errors)
+        ];
+    } else {
+        $message = 'Vote successfully cast';
+        if (!empty($errors)) {
+            $message .= '. Some positions were skipped: ' . implode(' ', $errors);
+        }
+
+        $_SESSION['flash'] = [
+            'type' => 'success',
+            'message' => $message
+        ];
+    }
 
     header('Location: ../frontend/dashboard.php');
     exit;

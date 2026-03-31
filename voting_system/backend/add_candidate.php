@@ -31,12 +31,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $studentDepartmentId = $department_id;
     $studentDepartment = $department;
     if ($student_id) {
-        $studentStmt = $conn->prepare('SELECT full_name, department_id, department FROM students WHERE student_id = ?');
-        $studentStmt->bind_param('i', $student_id);
-        $studentStmt->execute();
-        $studentStmt->bind_result($fullName, $dept_id, $dept_name);
-        if (!$studentStmt->fetch()) {
-            $studentStmt->close();
+        $student = db_get_student_by_id($student_id);
+        if (!$student) {
             $_SESSION['flash'] = [
                 'type' => 'error',
                 'message' => 'Selected student does not exist in the student database.'
@@ -44,17 +40,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             header('Location: ../frontend/add_candidate.php');
             exit;
         }
-        $studentStmt->close();
-        $studentDepartmentId = $dept_id;
-        $studentDepartment = $dept_name;
+        $studentDepartmentId = (int) ($student['department_id'] ?? 0);
+        $studentDepartment = (string) ($student['department'] ?? '');
 
         // Check if this student is already a candidate for this position
-        $checkExisting = $conn->prepare('SELECT candidate_id FROM candidates WHERE student_id = ? AND position_id = ?');
-        $checkExisting->bind_param('ii', $student_id, $position_id);
-        $checkExisting->execute();
-        $checkExisting->store_result();
-        if ($checkExisting->num_rows > 0) {
-            $checkExisting->close();
+        if (db_find_candidate_by_student_position($student_id, $position_id)) {
             $_SESSION['flash'] = [
                 'type' => 'error',
                 'message' => 'This student is already registered as a candidate for the selected position.'
@@ -62,7 +52,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             header('Location: ../frontend/add_candidate.php');
             exit;
         }
-        $checkExisting->close();
     }
 
     if (!empty($_FILES['image']['name']) && $_FILES['image']['error'] === UPLOAD_ERR_OK) {
@@ -84,9 +73,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
-    $stmt = $conn->prepare("INSERT INTO candidates (student_id, name, position_id, department_id, department, gender, manifesto, image_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
-    $stmt->bind_param("isiiisss", $student_id, $candidate_name, $position_id, $studentDepartmentId, $studentDepartment, $gender, $manifesto, $imageUrl);
-    $stmt->execute();
+    db_create_candidate($student_id, $candidate_name, $position_id, $studentDepartmentId, $studentDepartment, $gender, $manifesto, $imageUrl);
 
     if (function_exists('log_action')) {
         log_action($conn, 'Candidate added: ' . $candidate_name . ' (position_id: ' . $position_id . ', department_id: ' . $studentDepartmentId . ')', 0);

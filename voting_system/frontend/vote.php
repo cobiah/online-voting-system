@@ -4,7 +4,6 @@ if (!isset($_SESSION['student_id'])) {
     header('Location: login.php');
     exit;
 }
-// Prevent admins from accessing student voting
 if (isset($_SESSION['admin']) && !isset($_SESSION['student_id'])) {
     header('Location: admin_dashboard.php');
     exit;
@@ -12,135 +11,35 @@ if (isset($_SESSION['admin']) && !isset($_SESSION['student_id'])) {
 
 include '../backend/db.php';
 
-$currentElection = null;
-$stmtElection = $conn->prepare("SELECT election_id, title, start_date, end_date FROM elections WHERE is_active = 1 ORDER BY start_date ASC LIMIT 1");
-if ($stmtElection) {
-    $stmtElection->execute();
-    $resultElection = $stmtElection->get_result();
-    $currentElection = $resultElection->fetch_assoc();
-    $stmtElection->close();
+$currentElection = db_get_current_election();
+$electionOpen = $currentElection !== null;
+$electionMessage = $electionOpen ? 'Voting is currently open by admin.' : 'Voting is currently closed.';
+
+$studentId = (int) $_SESSION['student_id'];
+$student = db_get_student_by_id($studentId) ?? [];
+$studentDeptId = (int) ($student['department_id'] ?? 0);
+$studentDepartment = (string) ($student['department'] ?? 'Unknown Department');
+if ($studentDepartment === '') {
+    $studentDepartment = 'Unknown Department';
 }
 
-$electionOpen = false;
-$electionMessage = 'Voting is currently closed.';
-if ($currentElection) {
-    $electionOpen = true;
-    $electionMessage = 'Voting is currently open by admin.';
-}
-
-$studentId = (int)$_SESSION['student_id'];
-
-$studentDeptId = 0;
-$studentDepartment = 'Unknown Department';
-
-$hasStudentDepartmentId = false;
-$hasStudentDepartmentText = false;
-
-try {
-    $colStmt = $conn->prepare("SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE table_schema = DATABASE() AND table_name = 'students' AND column_name = ?");
-    $colStmt->bind_param('s', $fieldName);
-    $fieldName = 'department_id';
-    $colStmt->execute();
-    $colStmt->bind_result($count);
-    $colStmt->fetch();
-    $hasStudentDepartmentId = ($count > 0);
-    $colStmt->close();
-
-    $colStmt = $conn->prepare("SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE table_schema = DATABASE() AND table_name = 'students' AND column_name = ?");
-    $colStmt->bind_param('s', $fieldName);
-    $fieldName = 'department';
-    $colStmt->execute();
-    $colStmt->bind_result($count);
-    $hasStudentDepartmentText = ($count > 0);
-    $colStmt->close();
-} catch (mysqli_sql_exception $e) {
-    // Ignore and fall back to best-effort retrieval.
-}
-
-if ($hasStudentDepartmentId) {
-    $studentRes = $conn->prepare('SELECT department_id, department FROM students WHERE student_id = ?');
-    $studentRes->bind_param('i', $studentId);
-    $studentRes->execute();
-    $studentRes->bind_result($studentDeptId, $studentDepartment);
-    $studentRes->fetch();
-    $studentRes->close();
-} elseif ($hasStudentDepartmentText) {
-    $studentRes = $conn->prepare('SELECT department FROM students WHERE student_id = ?');
-    $studentRes->bind_param('i', $studentId);
-    $studentRes->execute();
-    $studentRes->bind_result($studentDepartment);
-    $studentRes->fetch();
-    $studentRes->close();
-}
-
-// Determine which positions still need votes
 $positions = [];
-$res = $conn->query("SELECT position_id, position_name FROM positions ORDER BY position_name");
-while ($row = $res->fetch_assoc()) {
+foreach (db_get_positions() as $row) {
     $positions[$row['position_id']] = $row['position_name'];
 }
 
 $positionIds = array_keys($positions);
-
-$voteCount = 0;
-$voteCountStmt = $conn->prepare('SELECT COUNT(*) FROM votes WHERE student_id = ?');
-$voteCountStmt->bind_param('i', $studentId);
-$voteCountStmt->execute();
-$voteCountStmt->bind_result($voteCount);
-$voteCountStmt->fetch();
-$voteCountStmt->close();
-
+$voteCount = db_count_votes_for_student($studentId);
 $votedPositionIds = [];
-$voteCheck = $conn->prepare('SELECT DISTINCT position_id FROM votes WHERE student_id = ?');
-$voteCheck->bind_param('i', $studentId);
-$voteCheck->execute();
-$voteResult = $voteCheck->get_result();
-while ($row = $voteResult->fetch_assoc()) {
-    $votedPositionIds[] = $row['position_id'];
+foreach (db_find_many('votes', ['student_id' => $studentId]) as $row) {
+    $votedPositionIds[] = (int) $row['position_id'];
 }
 
 $remainingPositionIds = array_values(array_diff($positionIds, $votedPositionIds));
 $hasVoted = $voteCount > 0 || empty($remainingPositionIds);
 
-// Fetch candidates grouped by position_id for the student's department
 $candidatesByPositionId = [];
-$hasCandidateDepartmentId = false;
-$hasCandidateDepartmentText = false;
-
-try {
-    $colStmt = $conn->prepare("SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE table_schema = DATABASE() AND table_name = 'candidates' AND column_name = ?");
-    $colStmt->bind_param('s', $fieldName);
-    $fieldName = 'department_id';
-    $colStmt->execute();
-    $colStmt->bind_result($count);
-    $colStmt->fetch();
-    $hasCandidateDepartmentId = ($count > 0);
-    $colStmt->close();
-
-    $colStmt = $conn->prepare("SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE table_schema = DATABASE() AND table_name = 'candidates' AND column_name = ?");
-    $colStmt->bind_param('s', $fieldName);
-    $fieldName = 'department';
-    $colStmt->execute();
-    $colStmt->bind_result($count);
-    $hasCandidateDepartmentText = ($count > 0);
-    $colStmt->close();
-} catch (mysqli_sql_exception $e) {
-    // Ignore and fall back to generic query.
-}
-
-if ($studentDeptId > 0 && $hasCandidateDepartmentId) {
-    $statement = $conn->prepare("SELECT c.candidate_id, c.name, c.position_id, c.image_url, c.manifesto FROM candidates c WHERE c.department_id = ? ORDER BY c.position_id, c.name");
-    $statement->bind_param('i', $studentDeptId);
-} elseif (!empty($studentDepartment) && $studentDepartment !== 'Unknown Department' && $hasCandidateDepartmentText) {
-    $statement = $conn->prepare("SELECT c.candidate_id, c.name, c.position_id, c.image_url, c.manifesto FROM candidates c WHERE c.department = ? ORDER BY c.position_id, c.name");
-    $statement->bind_param('s', $studentDepartment);
-} else {
-    $statement = $conn->prepare("SELECT c.candidate_id, c.name, c.position_id FROM candidates c ORDER BY c.position_id, c.name");
-}
-
-$statement->execute();
-$res = $statement->get_result();
-while ($row = $res->fetch_assoc()) {
+foreach (db_get_candidates_for_department($studentDeptId, $studentDepartment) as $row) {
     $candidatesByPositionId[$row['position_id']][] = $row;
 }
 ?>
@@ -155,7 +54,7 @@ while ($row = $res->fetch_assoc()) {
 
     <?php if (!$electionOpen): ?>
       <div class="alert error">
-        <span class="icon">⚠️</span>
+        <span class="icon">âš ï¸</span>
         <span><?= htmlspecialchars($electionMessage) ?></span>
       </div>
       <div style="margin-top: 16px;">
@@ -163,7 +62,7 @@ while ($row = $res->fetch_assoc()) {
       </div>
     <?php elseif ($hasVoted): ?>
       <div class="alert success">
-        <span class="icon">✅</span>
+        <span class="icon">âœ…</span>
         <span>You have already cast your vote. You can now only view the results.</span>
       </div>
       <div style="margin-top: 16px; display: grid; gap: 12px;">
@@ -172,12 +71,12 @@ while ($row = $res->fetch_assoc()) {
       </div>
     <?php elseif (empty($candidatesByPositionId)): ?>
       <div class="alert error">
-        <span class="icon">⚠️</span>
+        <span class="icon">âš ï¸</span>
         <span>No candidates are currently available. Please check back later.</span>
       </div>
     <?php else: ?>
       <div class="alert info" style="margin-bottom: 18px;">
-        <span class="icon">📍</span>
+        <span class="icon">ðŸ“</span>
         <span>Department ballot: <?= htmlspecialchars($studentDepartment) ?></span>
       </div>
 
@@ -185,7 +84,7 @@ while ($row = $res->fetch_assoc()) {
         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(generate_csrf_token()) ?>">
         <div class="card" style="margin-bottom: 18px;">
           <button type="button" class="button button-secondary" style="width:100%; text-align:left; margin-bottom: 12px;" onclick="toggleDepartmentAccordion()">
-            <?= htmlspecialchars($studentDepartment) ?> ballot – expand / collapse
+            <?= htmlspecialchars($studentDepartment) ?> ballot â€“ expand / collapse
           </button>
           <div id="departmentAccordion">
             <?php foreach ($remainingPositionIds as $positionId): ?>
@@ -194,7 +93,7 @@ while ($row = $res->fetch_assoc()) {
 
             <?php if (empty($candidatesByPositionId[$positionId] ?? [])): ?>
               <div class="alert error">
-                <span class="icon">⚠️</span>
+                <span class="icon">âš ï¸</span>
                 <span>No candidates are available for this position in your department.</span>
               </div>
             <?php else: ?>
@@ -241,86 +140,78 @@ while ($row = $res->fetch_assoc()) {
   </section>
 </div>
 
-  <script>
-    function renderBallotPreview() {
-      const voteForm = document.getElementById('voteForm');
-      const rows = voteForm.querySelectorAll('.department-ballot');
-      const previewContent = document.getElementById('previewContent');
-      const ballotEntries = [];
-      let hasMissing = false;
+<script>
+function renderBallotPreview() {
+  const voteForm = document.getElementById('voteForm');
+  const rows = voteForm.querySelectorAll('.department-ballot');
+  const previewContent = document.getElementById('previewContent');
+  const ballotEntries = [];
+  let hasMissing = false;
 
-      rows.forEach(row => {
-        const positionName = row.querySelector('h3').textContent.trim();
-        const selected = row.querySelector('input[type="radio"]:checked');
-        if (selected) {
-          ballotEntries.push({
-            position: positionName,
-            candidate: selected.dataset.candidateName || 'Unknown candidate'
-          });
-        } else {
-          ballotEntries.push({
-            position: positionName,
-            candidate: null
-          });
-          hasMissing = true;
-        }
-      });
-
-      if (hasMissing) {
-        alert('Please select a candidate for every position before previewing your ballot.');
-        return;
-      }
-
-      if (ballotEntries.length === 0) {
-        alert('No ballot selections are available yet.');
-        return;
-      }
-
-      previewContent.innerHTML = ballotEntries.map(entry => {
-        return '<div class="preview-row"><strong>' + entry.position + '</strong>: ' + entry.candidate + '</div>';
-      }).join('');
-
-      document.getElementById('ballotPreview').style.display = 'block';
+  rows.forEach(row => {
+    const positionName = row.querySelector('h3').textContent.trim();
+    const selected = row.querySelector('input[type="radio"]:checked');
+    if (selected) {
+      ballotEntries.push({ position: positionName, candidate: selected.dataset.candidateName || 'Unknown candidate' });
+    } else {
+      ballotEntries.push({ position: positionName, candidate: null });
+      hasMissing = true;
     }
+  });
 
-    function hideBallotPreview() {
-      document.getElementById('ballotPreview').style.display = 'none';
-    }
+  if (hasMissing) {
+    alert('Please select a candidate for every position before previewing your ballot.');
+    return;
+  }
 
-    function toggleDepartmentAccordion() {
-      const section = document.getElementById('departmentAccordion');
-      if (!section) {
-        return;
-      }
-      section.style.display = section.style.display === 'none' ? 'block' : 'none';
-    }
+  if (ballotEntries.length === 0) {
+    alert('No ballot selections are available yet.');
+    return;
+  }
 
-    function confirmVote() {
-      return confirm('This action is final. Are you sure you want to submit your ballot?');
-    }
-  </script>
+  previewContent.innerHTML = ballotEntries.map(entry => {
+    return '<div class=\"preview-row\"><strong>' + entry.position + '</strong>: ' + entry.candidate + '</div>';
+  }).join('');
 
-  <div id="imageModal" class="image-modal" onclick="closeImageModal()">
-    <div class="image-modal-content" onclick="event.stopPropagation();">
-      <span class="image-modal-close" onclick="closeImageModal()">&times;</span>
-      <img id="imageModalSrc" src="" alt="Candidate photo">
-    </div>
+  document.getElementById('ballotPreview').style.display = 'block';
+}
+
+function hideBallotPreview() {
+  document.getElementById('ballotPreview').style.display = 'none';
+}
+
+function toggleDepartmentAccordion() {
+  const section = document.getElementById('departmentAccordion');
+  if (!section) {
+    return;
+  }
+  section.style.display = section.style.display === 'none' ? 'block' : 'none';
+}
+
+function confirmVote() {
+  return confirm('This action is final. Are you sure you want to submit your ballot?');
+}
+
+function showImageModal(src) {
+  const modal = document.getElementById('imageModal');
+  const img = document.getElementById('imageModalSrc');
+  img.src = src;
+  modal.classList.add('show');
+}
+
+function closeImageModal() {
+  const modal = document.getElementById('imageModal');
+  const img = document.getElementById('imageModalSrc');
+  modal.classList.remove('show');
+  img.src = '';
+}
+</script>
+
+<div id="imageModal" class="image-modal" onclick="closeImageModal()">
+  <div class="image-modal-content" onclick="event.stopPropagation();">
+    <span class="image-modal-close" onclick="closeImageModal()">&times;</span>
+    <img id="imageModalSrc" src="" alt="Candidate photo">
   </div>
-
-  <script>
-    function showImageModal(src) {
-      const modal = document.getElementById('imageModal');
-      const img = document.getElementById('imageModalSrc');
-      img.src = src;
-      modal.classList.add('show');
-    }
-
-    function closeImageModal() {
-      const modal = document.getElementById('imageModal');
-      const img = document.getElementById('imageModalSrc');
-      modal.classList.remove('show');
-      img.src = '';
-    }
-  </script>
+</div>
 
 <?php include '../includes/footer.php'; ?>

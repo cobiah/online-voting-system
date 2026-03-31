@@ -31,11 +31,9 @@ if ($position_id <= 0) {
     exit;
 }
 
-$stmt = $conn->prepare('DELETE FROM positions WHERE position_id = ?');
-$stmt->bind_param('i', $position_id);
-$stmt->execute();
+$deleted = db_delete_position($position_id);
 
-if ($stmt->affected_rows > 0) {
+if ($deleted > 0) {
     $_SESSION['flash'] = [
         'type' => 'success',
         'message' => 'Position deleted successfully.'

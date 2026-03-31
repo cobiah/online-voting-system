@@ -55,11 +55,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
-    $deptStmt = $conn->prepare('SELECT name FROM departments WHERE department_id = ?');
-    $deptStmt->bind_param('i', $department_id);
-    $deptStmt->execute();
-    $deptStmt->bind_result($department_name);
-    if (!$deptStmt->fetch()) {
+    $department = db_get_department_by_id($department_id);
+    $department_name = $department['name'] ?? '';
+    if ($department_name === '') {
         $_SESSION['flash'] = [
             'type' => 'error',
             'message' => 'Selected department is invalid.'
@@ -67,7 +65,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         header('Location: ../frontend/register.php');
         exit;
     }
-    $deptStmt->close();
 
     if (strlen($password) < 8) {
         $_SESSION['flash'] = [
@@ -87,12 +84,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
-    $checkStmt = $conn->prepare('SELECT student_id FROM students WHERE email = ? OR reg_no = ?');
-    $checkStmt->bind_param('ss', $email, $reg_no);
-    $checkStmt->execute();
-    $checkStmt->store_result();
-
-    if ($checkStmt->num_rows > 0) {
+    if (db_student_exists_by_email_or_regno($email, $reg_no)) {
         $_SESSION['flash'] = [
             'type' => 'error',
             'message' => 'An account with that email or Student ID already exists.'
@@ -103,11 +95,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $password_hash = password_hash($password, PASSWORD_BCRYPT);
 
-    $stmt = $conn->prepare("INSERT INTO students (reg_no, full_name, email, password_hash, department_id, department) VALUES (?, ?, ?, ?, ?, ?)");
-    $stmt->bind_param("ssssis", $reg_no, $full_name, $email, $password_hash, $department_id, $department_name);
-
-    if ($stmt->execute()) {
-        $student_id = $stmt->insert_id;
+    try {
+        $student_id = db_create_student($reg_no, $full_name, $email, $password_hash, $department_id, $department_name);
         if (function_exists('log_action')) {
             log_action($conn, 'Student registered', $student_id);
         }
@@ -118,6 +107,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         ];
         header('Location: ../frontend/login.php');
         exit;
+    } catch (Throwable $e) {
     }
 
     $_SESSION['flash'] = [

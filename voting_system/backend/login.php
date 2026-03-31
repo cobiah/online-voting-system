@@ -19,16 +19,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
-    $stmt = $conn->prepare("SELECT student_id, full_name, password_hash FROM students WHERE email = ?");
-    $stmt->bind_param("s", $email);
-    $stmt->execute();
-    $stmt->store_result();
-    $stmt->bind_result($student_id, $full_name, $password_hash);
-    $stmt->fetch();
+    $student = db_find_student_by_email($email);
 
-    if ($stmt->num_rows > 0 && password_verify($password, $password_hash)) {
-        $_SESSION['student_id'] = $student_id;
-        $_SESSION['student_name'] = $full_name;
+    if ($student && password_verify($password, (string) $student['password_hash'])) {
+        $_SESSION['student_id'] = (int) $student['student_id'];
+        $_SESSION['student_name'] = (string) $student['full_name'];
 
         // Regenerate session ID to prevent session fixation
         session_regenerate_id(true);
@@ -38,7 +33,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         // Audit log
         if (function_exists('log_action')) {
-            log_action($conn, 'User logged in', $student_id);
+            log_action($conn, 'User logged in', (int) $student['student_id']);
         }
 
         header("Location: ../frontend/dashboard.php");

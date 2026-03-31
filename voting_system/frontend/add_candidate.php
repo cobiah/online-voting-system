@@ -13,26 +13,22 @@ if (isset($_SESSION['student_id']) && !isset($_SESSION['admin'])) {
 include '../backend/db.php';
 
 $positions = [];
-$posRes = $conn->query('SELECT position_id, position_name FROM positions ORDER BY position_name');
-while ($row = $posRes->fetch_assoc()) {
+foreach (db_get_positions() as $row) {
     $positions[] = $row;
 }
 
 $students = [];
-$studentRes = $conn->query('SELECT student_id, reg_no, full_name, department FROM students ORDER BY full_name');
-while ($row = $studentRes->fetch_assoc()) {
+foreach (db_get_students_for_candidate_form() as $row) {
     $students[] = $row;
 }
 
 $departments = [];
-$deptRes = $conn->query('SELECT department_id, name FROM departments ORDER BY name');
-while ($row = $deptRes->fetch_assoc()) {
+foreach (db_get_departments() as $row) {
     $departments[] = $row;
 }
 
 $candidates = [];
-$res = $conn->query('SELECT c.candidate_id, c.name, p.position_name, d.name AS department, c.gender, c.image_url, c.manifesto FROM candidates c JOIN positions p ON c.position_id = p.position_id LEFT JOIN departments d ON c.department_id = d.department_id ORDER BY p.position_name, c.name');
-while ($row = $res->fetch_assoc()) {
+foreach (db_get_candidates_admin() as $row) {
     $candidates[] = $row;
 }
 ?>

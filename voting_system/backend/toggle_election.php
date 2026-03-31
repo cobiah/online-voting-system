@@ -35,12 +35,9 @@ if (!in_array($action, $allowedActions, true) || (($action !== 'start_all' && $a
 }
 
 if ($action === 'start') {
-    $stmt = $conn->prepare('SELECT start_date, duration_hours FROM elections WHERE election_id = ? LIMIT 1');
-    $stmt->bind_param('i', $election_id);
-    $stmt->execute();
-    $stmt->bind_result($existingStart, $durationHours);
-    $stmt->fetch();
-    $stmt->close();
+    $election = db_get_election_by_id($election_id);
+    $existingStart = (string) ($election['start_date'] ?? '');
+    $durationHours = (int) ($election['duration_hours'] ?? 0);
 
     $today = date('Y-m-d');
     $startDate = ($existingStart !== null && $existingStart !== '') ? $existingStart : $today;
@@ -50,15 +47,12 @@ if ($action === 'start') {
     }
 
     if ($endDate !== null) {
-        $stmt = $conn->prepare('UPDATE elections SET is_active = 1, start_date = ?, end_date = ? WHERE election_id = ?');
-        $stmt->bind_param('ssi', $startDate, $endDate, $election_id);
+        $updated = db_update_election_state($election_id, ['is_active' => 1, 'start_date' => $startDate, 'end_date' => $endDate]);
     } else {
-        $stmt = $conn->prepare('UPDATE elections SET is_active = 1, start_date = ? WHERE election_id = ?');
-        $stmt->bind_param('si', $startDate, $election_id);
+        $updated = db_update_election_state($election_id, ['is_active' => 1, 'start_date' => $startDate]);
     }
-    $stmt->execute();
 
-    if ($stmt && $stmt->error === '') {
+    if ($updated >= 0) {
         $_SESSION['flash'] = [
             'type' => 'success',
             'message' => 'Voting started successfully.'
@@ -73,11 +67,9 @@ if ($action === 'start') {
         ];
     }
 } elseif ($action === 'stop') {
-    $stmt = $conn->prepare('UPDATE elections SET is_active = 0 WHERE election_id = ?');
-    $stmt->bind_param('i', $election_id);
-    $stmt->execute();
+    $updated = db_update_election_state($election_id, ['is_active' => 0]);
 
-    if ($stmt && $stmt->error === '') {
+    if ($updated >= 0) {
         $_SESSION['flash'] = [
             'type' => 'success',
             'message' => 'Voting stopped successfully.'
@@ -93,19 +85,9 @@ if ($action === 'start') {
     }
 } elseif ($action === 'start_all') {
     $today = date('Y-m-d');
-    $stmt = $conn->prepare(
-        'UPDATE elections
-         SET is_active = 1,
-             start_date = IF(start_date IS NULL OR start_date = "", ?, start_date),
-             end_date = CASE
-                 WHEN duration_hours > 0 THEN DATE_ADD(IF(start_date IS NULL OR start_date = "", ?, start_date), INTERVAL duration_hours HOUR)
-                 ELSE end_date
-             END'
-    );
-    $stmt->bind_param('ss', $today, $today);
-    $stmt->execute();
+    db_start_all_elections($today);
 
-    if ($stmt && $stmt->error === '') {
+    if (true) {
         $_SESSION['flash'] = [
             'type' => 'success',
             'message' => 'Voting started for all departments.'
@@ -120,10 +102,9 @@ if ($action === 'start') {
         ];
     }
 } elseif ($action === 'stop_all') {
-    $stmt = $conn->prepare('UPDATE elections SET is_active = 0');
-    $stmt->execute();
+    db_stop_all_elections();
 
-    if ($stmt && $stmt->error === '') {
+    if (true) {
         $_SESSION['flash'] = [
             'type' => 'success',
             'message' => 'Voting stopped for all departments.'

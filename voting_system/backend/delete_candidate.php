@@ -9,9 +9,7 @@ if (!isset($_SESSION['admin'])) {
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['candidate_id'])) {
     $id = (int)$_POST['candidate_id'];
-    $stmt = $conn->prepare('DELETE FROM candidates WHERE candidate_id = ?');
-    $stmt->bind_param('i', $id);
-    $stmt->execute();
+    db_delete_candidate($id);
 
     if (function_exists('log_action')) {
         log_action($conn, 'Candidate deleted (ID: ' . $id . ')', 0);

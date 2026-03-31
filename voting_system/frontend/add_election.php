@@ -14,17 +14,10 @@ include '../backend/db.php';
 
 $elections = [];
 $electionsError = null;
-$res = $conn->query('SELECT election_id, title, description, start_date, end_date, duration_hours, is_active FROM elections ORDER BY created_at DESC');
-if ($res === false) {
-    if (str_contains($conn->error, "doesn't exist")) {
-        $electionsError = 'Database table `elections` does not exist. Please refresh the page after a quick setup.';
-    } else {
-        $electionsError = 'Unable to load elections: ' . htmlspecialchars($conn->error);
-    }
-} else {
-    while ($row = $res->fetch_assoc()) {
-        $elections[] = $row;
-    }
+try {
+    $elections = db_get_all_elections();
+} catch (Throwable $e) {
+    $electionsError = 'Unable to load elections: ' . htmlspecialchars($e->getMessage());
 }
 
 $flash = $_SESSION['flash'] ?? null;

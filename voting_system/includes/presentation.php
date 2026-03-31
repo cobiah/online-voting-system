@@ -11,7 +11,7 @@ if (!function_exists('presentation_mode_enabled')) {
 if (!function_exists('database_ready')) {
     function database_ready($conn): bool
     {
-        return $conn instanceof mysqli;
+        return is_object($conn);
     }
 }
 

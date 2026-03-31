@@ -14,18 +14,7 @@ if ($isPresentation) {
         }
     }
 } else {
-    $sql = "SELECT c.candidate_id, c.name, c.image_url, p.position_name, COUNT(v.vote_id) AS total_votes
-            FROM candidates c
-            JOIN positions p ON c.position_id = p.position_id
-            LEFT JOIN votes v ON c.candidate_id = v.candidate_id
-            GROUP BY p.position_name, c.candidate_id, c.name, c.image_url
-            ORDER BY p.position_name, total_votes DESC";
-
-    $res = $conn->query($sql);
-    if (!$res) {
-        die('Database error: ' . $conn->error);
-    }
-    while ($row = $res->fetch_assoc()) {
+    foreach (db_get_public_results() as $row) {
         $position = $row['position_name'];
         $results[$position][] = $row;
         $positionTotals[$position] = ($positionTotals[$position] ?? 0) + (int)$row['total_votes'];
