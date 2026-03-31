@@ -36,8 +36,11 @@ $votesCast = $conn->query('SELECT COUNT(*) AS total FROM votes')->fetch_assoc()[
     </div>
 
     <div style="margin-top: 24px; display: grid; gap: 12px;">
+      <a href="add_position.php" class="button button-primary">Add Election Position</a>
       <a href="add_candidate.php" class="button button-primary">Add Candidate</a>
-      <a href="results.php" class="button button-secondary">View Results</a>
+      <a href="add_election.php" class="button button-primary">Manage Elections</a>
+      <a href="admin_results.php" class="button button-secondary">View Results</a>
+      <a href="voter_management.php" class="button button-secondary">Voter Management</a>
       <a href="view_audit.php" class="button button-secondary">Audit Logs</a>
       <a href="../backend/tamper_check.php" class="button button-secondary">Tamper Check</a>
     </div>

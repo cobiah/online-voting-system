@@ -5,18 +5,19 @@ include '../includes/header.php';
 $results = [];
 $positionTotals = [];
 
-$sql = "SELECT c.candidate_id, c.name, c.position, COUNT(v.vote_id) AS total_votes
+$sql = "SELECT c.candidate_id, c.name, c.image_url, p.position_name, COUNT(v.vote_id) AS total_votes
         FROM candidates c
+        JOIN positions p ON c.position_id = p.position_id
         LEFT JOIN votes v ON c.candidate_id = v.candidate_id
-        GROUP BY c.position, c.candidate_id, c.name
-        ORDER BY c.position, total_votes DESC";
+        GROUP BY p.position_name, c.candidate_id, c.name, c.image_url
+        ORDER BY p.position_name, total_votes DESC";
 
 $res = $conn->query($sql);
 if (!$res) {
     die('Database error: ' . $conn->error);
 }
 while ($row = $res->fetch_assoc()) {
-    $position = $row['position'];
+    $position = $row['position_name'];
     $results[$position][] = $row;
     $positionTotals[$position] = ($positionTotals[$position] ?? 0) + (int)$row['total_votes'];
 }
@@ -45,14 +46,21 @@ while ($row = $res->fetch_assoc()) {
               $pct = $denominator ? round($total / $denominator * 100) : 0;
             ?>
               <div class="result-row">
+              <div style="display:flex; align-items:center; gap:14px;">
+                <div class="result-avatar" style="<?= !empty($row['image_url']) ? 'background-image: url(\'' . htmlspecialchars($row['image_url'], ENT_QUOTES) . '\');' : '' ?>" <?php if (!empty($row['image_url'])): ?> onclick="showImageModal('<?= htmlspecialchars($row['image_url'], ENT_QUOTES) ?>')" <?php endif; ?> >
+                  <?php if (empty($row['image_url'])): ?>
+                    <?= strtoupper(substr(htmlspecialchars($row['name']), 0, 1)) ?>
+                  <?php endif; ?>
+                </div>
                 <div class="result-info">
                   <div class="result-name"><?= htmlspecialchars($row['name']) ?></div>
                   <div class="result-meta"><?= $total ?> votes &middot; <?= $pct ?>%</div>
                 </div>
-                <div class="result-bar">
-                  <div class="result-bar-fill" style="width: <?= $pct ?>%;"></div>
-                </div>
               </div>
+              <div class="result-bar">
+                <div class="result-bar-fill" style="width: <?= $pct ?>%;"></div>
+              </div>
+            </div>
             <?php endforeach; ?>
           </div>
         </div>
@@ -60,5 +68,28 @@ while ($row = $res->fetch_assoc()) {
     <?php endif; ?>
   </section>
 </div>
+
+  <div id="imageModal" class="image-modal" onclick="closeImageModal()">
+    <div class="image-modal-content" onclick="event.stopPropagation();">
+      <span class="image-modal-close" onclick="closeImageModal()">&times;</span>
+      <img id="imageModalSrc" src="" alt="Candidate photo">
+    </div>
+  </div>
+
+  <script>
+    function showImageModal(src) {
+      const modal = document.getElementById('imageModal');
+      const img = document.getElementById('imageModalSrc');
+      img.src = src;
+      modal.classList.add('show');
+    }
+
+    function closeImageModal() {
+      const modal = document.getElementById('imageModal');
+      const img = document.getElementById('imageModalSrc');
+      modal.classList.remove('show');
+      img.src = '';
+    }
+  </script>
 
 <?php include '../includes/footer.php'; ?>

@@ -169,6 +169,9 @@ a:hover {
   box-shadow: var(--shadow);
   padding: 28px;
   border: 1px solid rgba(0, 0, 0, 0.08);
+  opacity: 0;
+  transform: translateY(18px);
+  animation: fadeUp 0.55s ease forwards;
 }
 
 @media (max-width: 900px) {
@@ -220,6 +223,135 @@ a:hover {
   color: rgba(0, 0, 0, 0.72);
 }
 
+.candidate-card {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 16px;
+  padding: 18px;
+  border-radius: 18px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: #fff;
+  transition: border-color 150ms ease, box-shadow 150ms ease, transform 150ms ease;
+  position: relative;
+}
+
+.candidate-card:hover {
+  border-color: rgba(30, 136, 229, 0.35);
+  transform: translateY(-1px);
+}
+
+.candidate-card input[type="radio"] {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: auto;
+  height: auto;
+}
+
+.candidate-photo {
+  width: 96px;
+  height: 96px;
+  border-radius: 18px;
+  background: #eef3fb;
+  background-size: cover;
+  background-position: center;
+  display: grid;
+  place-items: center;
+  font-size: 28px;
+  color: rgba(15, 26, 43, 0.45);
+  cursor: pointer;
+}
+
+.result-avatar {
+  width: 64px;
+  height: 64px;
+  border-radius: 18px;
+  background: #eef3fb;
+  background-size: cover;
+  background-position: center;
+  display: grid;
+  place-items: center;
+  color: rgba(15, 26, 43, 0.45);
+  font-size: 24px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.image-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 20px;
+}
+
+.image-modal.show {
+  display: flex;
+}
+
+.image-modal-content {
+  position: relative;
+  max-width: min(90vw, 760px);
+  width: 100%;
+}
+
+.image-modal-content img {
+  width: 100%;
+  height: auto;
+  border-radius: 20px;
+  object-fit: contain;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+}
+
+.image-modal-close {
+  position: absolute;
+  top: -12px;
+  right: -12px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.92);
+  display: grid;
+  place-items: center;
+  font-size: 22px;
+  color: #111;
+  cursor: pointer;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+}
+
+.candidate-details {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.candidate-title {
+  font-weight: 700;
+}
+
+.candidate-meta {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+  max-height: 4.5em;
+  overflow: hidden;
+}
+
+.table-thumbnail {
+  width: 56px;
+  height: 56px;
+  border-radius: 12px;
+  object-fit: cover;
+}
+
+.muted {
+  color: rgba(15, 26, 43, 0.5);
+  font-size: 13px;
+}
+
 .form-control {
   width: 100%;
   padding: 14px 16px;
@@ -242,16 +374,18 @@ a:hover {
   align-items: center;
   justify-content: center;
   gap: 10px;
-  padding: 14px 18px;
-  border-radius: 14px;
+  padding: 14px 20px;
+  border-radius: 16px;
   border: none;
   cursor: pointer;
   font-weight: 700;
-  transition: transform 140ms ease, filter 140ms ease;
-  width: 100%;
+  transition: transform 140ms ease, filter 140ms ease, box-shadow 140ms ease;
+  width: auto;
+  min-width: 140px;
   box-sizing: border-box;
   background: transparent;
   color: #fff;
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.08);
 }
 
 .view-all {
@@ -261,6 +395,7 @@ a:hover {
 
 .button:active {
   transform: translateY(1px);
+  box-shadow: none;
 }
 
 .button-primary {
@@ -290,6 +425,39 @@ a:hover {
 
 .button-danger:hover {
   filter: brightness(1.08);
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 18px;
+  background: rgba(255, 255, 255, 0.96);
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.08);
+}
+
+.data-table th,
+.data-table td {
+  padding: 16px 18px;
+  text-align: left;
+  border-bottom: 1px solid rgba(15, 26, 43, 0.08);
+}
+
+.data-table th {
+  background: rgba(244, 247, 255, 0.95);
+  color: rgba(15, 26, 43, 0.8);
+  font-size: 13px;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.data-table tbody tr:hover {
+  background: rgba(30, 136, 229, 0.05);
+}
+
+.data-table tbody tr:last-child td {
+  border-bottom: none;
 }
 
 .alert {
@@ -439,6 +607,25 @@ a:hover {
   background: linear-gradient(90deg, var(--primary), var(--primary-dark));
   border-radius: 999px;
   transition: width 360ms ease;
+}
+
+.result-avatar {
+  width: 64px;
+  height: 64px;
+  border-radius: 18px;
+  background: #eef3fb;
+  background-size: cover;
+  background-position: center;
+  display: grid;
+  place-items: center;
+  color: rgba(15, 26, 43, 0.45);
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.result-row {
+  gap: 14px;
+  margin-bottom: 12px;
 }
 
 /* ====== Homepage Hero + Sections ====== */
@@ -628,6 +815,9 @@ a:hover {
   box-shadow: 0 18px 32px rgba(0, 0, 0, 0.1);
   border: 1px solid rgba(0, 0, 0, 0.08);
   text-align: center;
+  opacity: 0;
+  transform: translateY(20px);
+  animation: fadeUp 0.65s ease forwards;
 }
 
 .why-icon {
@@ -641,7 +831,84 @@ a:hover {
   margin: 0 auto 18px;
 }
 
-@media (max-width: 860px) {
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(22px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulseGlow {
+  0%, 100% {
+    box-shadow: 0 18px 36px rgba(30, 136, 229, 0.18);
+  }
+  50% {
+    box-shadow: 0 26px 46px rgba(30, 136, 229, 0.26);
+  }
+}
+
+.hero, .hero-content, .hero-copy, .hero-illustration, .feature-card, .election-card, .candidate-card, .data-table, .profile-card, .result-row {
+  opacity: 0;
+  transform: translateY(24px);
+  animation: fadeUp 0.75s ease forwards;
+}
+
+.hero {
+  animation-delay: 0.05s;
+}
+
+.hero-content {
+  animation-delay: 0.10s;
+}
+
+.hero-copy {
+  animation-delay: 0.14s;
+}
+
+.hero-illustration {
+  animation-delay: 0.18s;
+}
+
+.feature-card {
+  animation-delay: 0.18s;
+}
+
+.election-card {
+  animation-delay: 0.22s;
+}
+
+.candidate-card {
+  animation-delay: 0.20s;
+}
+
+.data-table {
+  animation-delay: 0.20s;
+}
+
+.profile-card {
+  animation-delay: 0.12s;
+}
+
+.result-row {
+  animation-delay: 0.14s;
+}
+
+.button-primary {
+  animation: pulseGlow 3.2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
   .hero-content {
     grid-template-columns: 1fr;
     gap: 30px;

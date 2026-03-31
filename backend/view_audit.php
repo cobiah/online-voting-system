@@ -1,4 +1,13 @@
 <?php
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
+if (!isset($_SESSION['admin'])) {
+    header('Location: ../frontend/admin_login.php');
+    exit;
+}
+
 include 'db.php';
 
 $result = $conn->query("SELECT * FROM audit_log ORDER BY timestamp DESC");

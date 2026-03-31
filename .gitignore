@@ -1,0 +1,15 @@
+/xampp/
+/webalizer/
+/dashboard/
+/img/
+/voting_system/
+/voting_system (2).zip
+/voting_system.zip
+applications.html
+bitnami.css
+favicon.ico
+.vscode/
+*.log
+*.tmp
+*.cache
+.DS_Store

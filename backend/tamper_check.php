@@ -8,14 +8,14 @@ if (!isset($_SESSION['admin'])) {
 }
 
 $issues = [];
-$sql = "SELECT v.vote_id, v.student_id, v.candidate_id, v.position, i.vote_hash
+$sql = "SELECT v.vote_id, v.student_id, v.candidate_id, v.position_id, i.vote_hash
         FROM votes v
         JOIN integrity i ON v.vote_id = i.vote_id";
 
 $result = $conn->query($sql);
 
 while ($row = $result->fetch_assoc()) {
-    $recalc = hash('sha256', $row['student_id'] . "-" . $row['position'] . "-" . $row['candidate_id'] . "-" . $row['vote_id']);
+    $recalc = hash('sha256', $row['student_id'] . "-" . $row['position_id'] . "-" . $row['candidate_id'] . "-" . $row['vote_id']);
     if (!hash_equals($recalc, $row['vote_hash'])) {
         $issues[] = $row['vote_id'];
     }

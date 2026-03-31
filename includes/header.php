@@ -3,7 +3,7 @@
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
-
+ 
 $baseUrl = '/voting_system';
 $isStudent = isset($_SESSION['student_id']);
 $isAdmin = isset($_SESSION['admin']);

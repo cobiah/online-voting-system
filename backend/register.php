@@ -3,16 +3,76 @@ include 'db.php';
 session_start();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!isset($_POST['csrf_token']) || !verify_csrf_token($_POST['csrf_token'])) {
+        $_SESSION['flash'] = [
+            'type' => 'error',
+            'message' => 'Invalid request. Please try again.'
+        ];
+        header('Location: ../frontend/register.php');
+        exit;
+    }
+
     $reg_no = trim($_POST['reg_no'] ?? '');
     $full_name = trim($_POST['name'] ?? '');
     $email = trim($_POST['email'] ?? '');
+    $department_id = isset($_POST['department_id']) ? (int)$_POST['department_id'] : 0;
     $password = $_POST['password'] ?? '';
     $confirm_password = $_POST['confirm_password'] ?? '';
 
-    if ($reg_no === '' || $full_name === '' || $email === '' || $password === '' || $confirm_password === '') {
+    if ($reg_no === '' || $full_name === '' || $email === '' || $department_id <= 0 || $password === '' || $confirm_password === '') {
         $_SESSION['flash'] = [
             'type' => 'error',
             'message' => 'All fields are required.'
+        ];
+        header('Location: ../frontend/register.php');
+        exit;
+    }
+
+    if (strlen($reg_no) > 50 || strlen($full_name) > 100 || strlen($email) > 100) {
+        $_SESSION['flash'] = [
+            'type' => 'error',
+            'message' => 'Input fields exceed maximum length.'
+        ];
+        header('Location: ../frontend/register.php');
+        exit;
+    }
+
+    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        $_SESSION['flash'] = [
+            'type' => 'error',
+            'message' => 'Invalid email format.'
+        ];
+        header('Location: ../frontend/register.php');
+        exit;
+    }
+
+    if ($department_id <= 0) {
+        $_SESSION['flash'] = [
+            'type' => 'error',
+            'message' => 'Please select a valid department.'
+        ];
+        header('Location: ../frontend/register.php');
+        exit;
+    }
+
+    $deptStmt = $conn->prepare('SELECT name FROM departments WHERE department_id = ?');
+    $deptStmt->bind_param('i', $department_id);
+    $deptStmt->execute();
+    $deptStmt->bind_result($department_name);
+    if (!$deptStmt->fetch()) {
+        $_SESSION['flash'] = [
+            'type' => 'error',
+            'message' => 'Selected department is invalid.'
+        ];
+        header('Location: ../frontend/register.php');
+        exit;
+    }
+    $deptStmt->close();
+
+    if (strlen($password) < 8) {
+        $_SESSION['flash'] = [
+            'type' => 'error',
+            'message' => 'Password must be at least 8 characters long.'
         ];
         header('Location: ../frontend/register.php');
         exit;
@@ -43,8 +103,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $password_hash = password_hash($password, PASSWORD_BCRYPT);
 
-    $stmt = $conn->prepare("INSERT INTO students (reg_no, full_name, email, password_hash) VALUES (?, ?, ?, ?)");
-    $stmt->bind_param("ssss", $reg_no, $full_name, $email, $password_hash);
+    $stmt = $conn->prepare("INSERT INTO students (reg_no, full_name, email, password_hash, department_id, department) VALUES (?, ?, ?, ?, ?, ?)");
+    $stmt->bind_param("ssssis", $reg_no, $full_name, $email, $password_hash, $department_id, $department_name);
 
     if ($stmt->execute()) {
         $student_id = $stmt->insert_id;

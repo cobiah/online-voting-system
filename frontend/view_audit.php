@@ -1,4 +1,13 @@
 <?php
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
+if (!isset($_SESSION['admin'])) {
+    header('Location: admin_login.php');
+    exit;
+}
+
 include '../backend/db.php';
 include '../includes/header.php';
 
@@ -11,7 +20,7 @@ while ($row = $res->fetch_assoc()) {
 ?>
 
 <div class="dashboard">
-  <?php include '../includes/sidebar_student.php'; ?>
+  <?php include '../includes/sidebar_admin.php'; ?>
 
   <section class="panel">
     <h2>System Audit Logs</h2>
