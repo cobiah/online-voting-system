@@ -24,7 +24,8 @@ if (!isset($_POST['csrf_token']) || !verify_csrf_token($_POST['csrf_token'])) {
 $election_id = (int)($_POST['election_id'] ?? 0);
 $action = trim($_POST['action'] ?? '');
 
-if ($election_id <= 0 || !in_array($action, ['start', 'stop'], true)) {
+$allowedActions = ['start', 'stop', 'start_all', 'stop_all'];
+if (!in_array($action, $allowedActions, true) || (($action !== 'start_all' && $action !== 'stop_all') && $election_id <= 0)) {
     $_SESSION['flash'] = [
         'type' => 'error',
         'message' => 'Invalid election action.'
@@ -57,7 +58,7 @@ if ($action === 'start') {
     }
     $stmt->execute();
 
-    if ($stmt->affected_rows > 0) {
+    if ($stmt && $stmt->error === '') {
         $_SESSION['flash'] = [
             'type' => 'success',
             'message' => 'Voting started successfully.'
@@ -71,12 +72,12 @@ if ($action === 'start') {
             'message' => 'Unable to start voting for this election.'
         ];
     }
-} else {
+} elseif ($action === 'stop') {
     $stmt = $conn->prepare('UPDATE elections SET is_active = 0 WHERE election_id = ?');
     $stmt->bind_param('i', $election_id);
     $stmt->execute();
 
-    if ($stmt->affected_rows > 0) {
+    if ($stmt && $stmt->error === '') {
         $_SESSION['flash'] = [
             'type' => 'success',
             'message' => 'Voting stopped successfully.'
@@ -88,6 +89,52 @@ if ($action === 'start') {
         $_SESSION['flash'] = [
             'type' => 'error',
             'message' => 'Unable to stop voting for this election.'
+        ];
+    }
+} elseif ($action === 'start_all') {
+    $today = date('Y-m-d');
+    $stmt = $conn->prepare(
+        'UPDATE elections
+         SET is_active = 1,
+             start_date = IF(start_date IS NULL OR start_date = "", ?, start_date),
+             end_date = CASE
+                 WHEN duration_hours > 0 THEN DATE_ADD(IF(start_date IS NULL OR start_date = "", ?, start_date), INTERVAL duration_hours HOUR)
+                 ELSE end_date
+             END'
+    );
+    $stmt->bind_param('ss', $today, $today);
+    $stmt->execute();
+
+    if ($stmt && $stmt->error === '') {
+        $_SESSION['flash'] = [
+            'type' => 'success',
+            'message' => 'Voting started for all departments.'
+        ];
+        if (function_exists('log_action')) {
+            log_action($conn, 'Voting started for all elections', 0);
+        }
+    } else {
+        $_SESSION['flash'] = [
+            'type' => 'error',
+            'message' => 'Unable to start voting for all departments.'
+        ];
+    }
+} elseif ($action === 'stop_all') {
+    $stmt = $conn->prepare('UPDATE elections SET is_active = 0');
+    $stmt->execute();
+
+    if ($stmt && $stmt->error === '') {
+        $_SESSION['flash'] = [
+            'type' => 'success',
+            'message' => 'Voting stopped for all departments.'
+        ];
+        if (function_exists('log_action')) {
+            log_action($conn, 'Voting stopped for all elections', 0);
+        }
+    } else {
+        $_SESSION['flash'] = [
+            'type' => 'error',
+            'message' => 'Unable to stop voting for all departments.'
         ];
     }
 }

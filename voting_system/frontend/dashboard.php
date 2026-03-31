@@ -10,10 +10,11 @@ include '../backend/db.php';
 $studentId = (int)$_SESSION['student_id'];
 $fullName = 'Student';
 
-$stmt = $conn->prepare('SELECT full_name FROM students WHERE student_id = ?');
+$studentDepartment = 'Unknown Department';
+$stmt = $conn->prepare('SELECT full_name, COALESCE(department, "", "Unknown Department") AS department FROM students WHERE student_id = ?');
 $stmt->bind_param('i', $studentId);
 $stmt->execute();
-$stmt->bind_result($fullName);
+$stmt->bind_result($fullName, $studentDepartment);
 $stmt->fetch();
 $stmt->close();
 
@@ -26,25 +27,15 @@ if ($stmtElection) {
     $stmtElection->close();
 }
 
-$today = date('Y-m-d');
 $electionMessage = 'No voting process is currently active.';
 $electionOpen = false;
 $electionTitle = null;
-$electionEnd = null;
+$electionTitleLabel = 'No active election';
 if ($currentElection) {
     $electionTitle = $currentElection['title'];
-    $electionEnd = $currentElection['end_date'];
-    if (!empty($currentElection['start_date']) && $today < $currentElection['start_date']) {
-        $electionMessage = 'Voting will begin on ' . date('F j, Y', strtotime($currentElection['start_date'])) . '.';
-    } elseif (!empty($currentElection['end_date']) && $today > $currentElection['end_date']) {
-        $electionMessage = 'This voting period ended on ' . date('F j, Y', strtotime($currentElection['end_date'])) . '.';
-    } else {
-        $electionOpen = true;
-        $electionMessage = 'Voting is live now!';
-        if (!empty($currentElection['end_date'])) {
-            $electionMessage .= ' Ends on ' . date('F j, Y', strtotime($currentElection['end_date'])) . '.';
-        }
-    }
+    $electionTitleLabel = ($electionTitle && $electionTitle !== 'General Election') ? $electionTitle : 'Department Voting';
+    $electionOpen = true;
+    $electionMessage = 'Voting is currently open by admin.';
 }
 
 $voteStatus = $conn->prepare('SELECT COUNT(*) FROM votes WHERE student_id = ?');
@@ -75,9 +66,12 @@ include '../includes/header.php';
         </div>
       </div>
 
-      <div style="margin-top: 18px;">
-        <p style="margin: 0 0 10px; color: #333; font-weight: 500;"><?= htmlspecialchars($electionTitle ?? 'No election selected') ?></p>
-        <p style="margin: 0 0 20px; color: #555;"><?= htmlspecialchars($electionMessage) ?></p>
+      <div style="margin-top: 18px; display: grid; gap: 10px;">
+        <p style="margin: 0 0 4px; color: #333; font-weight: 700; font-size: 1.05rem;">
+          <?= htmlspecialchars($electionTitleLabel) ?>
+        </p>
+        <p style="margin: 0 0 4px; color: #555;"><?= htmlspecialchars($electionMessage) ?></p>
+        <p style="margin: 0; color: #555;">Department: <?= htmlspecialchars($studentDepartment) ?></p>
       </div>
 
       <div style="margin-top: 22px; display: grid; gap: 12px;">

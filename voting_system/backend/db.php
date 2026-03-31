@@ -241,9 +241,7 @@ try {
 
     $conn->set_charset('utf8mb4');
     ensure_project_schema($conn);
-    if (function_exists('deactivate_expired_elections')) {
-        deactivate_expired_elections($conn);
-    }
+    // Voting open/close is now controlled only by admin actions.
 } catch (mysqli_sql_exception $e) {
     die('Database connection failed: ' . $e->getMessage() . '. Make sure MySQL user/password in backend/db.php or environment variables are correct.');
 }

@@ -17,19 +17,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
-    $title = trim($_POST['title'] ?? '');
+    $title = trim($_POST['title'] ?? 'General Election');
     $description = trim($_POST['description'] ?? '');
     $start_date = trim($_POST['start_date'] ?? '');
     $duration_hours = isset($_POST['duration_hours']) ? (int)$_POST['duration_hours'] : 0;
     $is_active = isset($_POST['is_active']) && $_POST['is_active'] === '1' ? 1 : 0;
 
     if ($title === '') {
-        $_SESSION['flash'] = [
-            'type' => 'error',
-            'message' => 'Election title is required.'
-        ];
-        header('Location: ../frontend/add_election.php');
-        exit;
+        $title = 'General Election';
     }
 
     if ($start_date === '') {
