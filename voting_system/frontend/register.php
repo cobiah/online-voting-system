@@ -3,8 +3,10 @@
 
 <?php
 $departments = [];
-foreach (db_get_departments() as $row) {
-    $departments[] = $row;
+if (database_ready($conn)) {
+    foreach (db_get_departments() as $row) {
+        $departments[] = $row;
+    }
 }
 ?>
 
@@ -12,6 +14,13 @@ foreach (db_get_departments() as $row) {
   <div class="card">
     <h2>Create Account</h2>
     <p>Register to vote in the upcoming election.</p>
+
+    <?php if (!database_ready($conn)): ?>
+      <div class="alert error">
+        <span class="icon">!</span>
+        <span>Registration is temporarily unavailable because the database connection is down.</span>
+      </div>
+    <?php else: ?>
 
     <form action="<?= htmlspecialchars(app_url('backend/register.php')) ?>" method="post" onsubmit="return validateRegistration();">
       <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(generate_csrf_token()) ?>">
@@ -56,6 +65,7 @@ foreach (db_get_departments() as $row) {
         Already have an account? <a href="login.php">Login</a>
       </p>
     </form>
+    <?php endif; ?>
   </div>
 </div>
 
