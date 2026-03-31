@@ -75,6 +75,7 @@ INSERT INTO positions (position_name, description) VALUES
 -- =========================
 CREATE TABLE candidates (
     candidate_id INT PRIMARY KEY AUTO_INCREMENT,
+    student_id INT DEFAULT NULL,
     name VARCHAR(100) NOT NULL,
     position_id INT NOT NULL,
     department VARCHAR(100),
@@ -83,6 +84,7 @@ CREATE TABLE candidates (
     manifesto TEXT,
     image_url VARCHAR(255),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (student_id) REFERENCES students(student_id) ON DELETE SET NULL,
     FOREIGN KEY (position_id) REFERENCES positions(position_id) ON DELETE CASCADE,
     FOREIGN KEY (department_id) REFERENCES departments(department_id) ON DELETE SET NULL
 );

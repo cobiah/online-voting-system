@@ -4,6 +4,11 @@ if (!isset($_SESSION['admin'])) {
     header('Location: admin_login.php');
     exit;
 }
+// Prevent students from accessing admin dashboard
+if (isset($_SESSION['student_id']) && !isset($_SESSION['admin'])) {
+    header('Location: dashboard.php');
+    exit;
+}
 
 include '../backend/db.php';
 
@@ -43,6 +48,7 @@ $votesCast = $conn->query('SELECT COUNT(*) AS total FROM votes')->fetch_assoc()[
       <a href="voter_management.php" class="button button-secondary">Voter Management</a>
       <a href="view_audit.php" class="button button-secondary">Audit Logs</a>
       <a href="../backend/tamper_check.php" class="button button-secondary">Tamper Check</a>
+      <a href="../backend/create_tamper_test.php" class="button" style="background-color: #ff9800; color: white;">🔍 Create Tamper Test Data</a>
     </div>
   </section>
 </div>

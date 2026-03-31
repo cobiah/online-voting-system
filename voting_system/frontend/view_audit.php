@@ -8,6 +8,12 @@ if (!isset($_SESSION['admin'])) {
     exit;
 }
 
+// Prevent students from accessing admin panel
+if (isset($_SESSION['student_id']) && !isset($_SESSION['admin'])) {
+    header('Location: dashboard.php');
+    exit;
+}
+
 include '../backend/db.php';
 include '../includes/header.php';
 

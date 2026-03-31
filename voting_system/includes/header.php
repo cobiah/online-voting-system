@@ -35,23 +35,30 @@ function navActive(string $page): string {
         </div>
 
         <nav class="site-nav">
-            <a href="<?= $baseUrl ?>/index.php" class="<?= navActive('index.php') ?>">Home</a>
-            <a href="<?= $baseUrl ?>/frontend/vote.php" class="<?= navActive('vote.php') ?>">Elections</a>
-            <a href="#how" class="<?= $activePage === 'index.php' ? 'active' : '' ?>">How It Works</a>
-            <a href="<?= $baseUrl ?>/frontend/results.php" class="<?= navActive('results.php') ?>">Results</a>
-
-            <?php if ($isStudent): ?>
-                <a href="<?= $baseUrl ?>/frontend/dashboard.php" class="<?= navActive('dashboard.php') ?>">Dashboard</a>
-                <a href="<?= $baseUrl ?>/backend/logout.php" class="button button-secondary">Logout</a>
-            <?php else: ?>
-                <a href="<?= $baseUrl ?>/frontend/login.php" class="button button-secondary">Login</a>
-                <a href="<?= $baseUrl ?>/frontend/register.php" class="button button-danger">Register</a>
+            <!-- Public Navigation (hidden when logged in) -->
+            <?php if (!$isStudent && !$isAdmin): ?>
+                <a href="<?= $baseUrl ?>/index.php" class="<?= navActive('index.php') ?>">Home</a>
+                <a href="<?= $baseUrl ?>/index.php#elections" class="<?= navActive('index.php') ?>">Elections</a>
+                <a href="<?= $baseUrl ?>/index.php#how" class="<?= navActive('index.php') ?>">How It Works</a>
+                <a href="<?= $baseUrl ?>/frontend/results.php" class="<?= navActive('results.php') ?>">Results</a>
             <?php endif; ?>
 
+            <!-- Student Navigation -->
+            <?php if ($isStudent && !$isAdmin): ?>
+                <a href="<?= $baseUrl ?>/frontend/dashboard.php" class="<?= navActive('dashboard.php') ?>">Dashboard</a>
+                <a href="<?= $baseUrl ?>/backend/logout.php" class="button button-secondary">Logout</a>
+            <?php endif; ?>
+
+            <!-- Admin Navigation -->
             <?php if ($isAdmin): ?>
-                <a href="<?= $baseUrl ?>/frontend/admin_dashboard.php" class="<?= navActive('admin_dashboard.php') ?>">Admin</a>
-            <?php else: ?>
-                <a href="<?= $baseUrl ?>/frontend/admin_login.php" class="<?= navActive('admin_login.php') ?>">Admin</a>
+                <a href="<?= $baseUrl ?>/frontend/admin_dashboard.php" class="<?= navActive('admin_dashboard.php') ?>">Dashboard</a>
+                <a href="<?= $baseUrl ?>/backend/logout.php" class="button button-secondary">Logout</a>
+            <?php endif; ?>
+
+            <!-- Login/Register (shown when not logged in) -->
+            <?php if (!$isStudent && !$isAdmin): ?>
+                <a href="<?= $baseUrl ?>/frontend/login.php" class="button button-secondary">Login</a>
+                <a href="<?= $baseUrl ?>/frontend/admin_login.php" class="button button-danger">Admin</a>
             <?php endif; ?>
         </nav>
     </header>

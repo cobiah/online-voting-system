@@ -4,6 +4,11 @@ if (!isset($_SESSION['admin'])) {
     header('Location: admin_login.php');
     exit;
 }
+// Prevent students from accessing admin panel
+if (isset($_SESSION['student_id']) && !isset($_SESSION['admin'])) {
+    header('Location: dashboard.php');
+    exit;
+}
 
 include '../backend/db.php';
 
@@ -17,6 +22,12 @@ $students = [];
 $studentRes = $conn->query('SELECT student_id, reg_no, full_name, department FROM students ORDER BY full_name');
 while ($row = $studentRes->fetch_assoc()) {
     $students[] = $row;
+}
+
+$departments = [];
+$deptRes = $conn->query('SELECT department_id, name FROM departments ORDER BY name');
+while ($row = $deptRes->fetch_assoc()) {
+    $departments[] = $row;
 }
 
 $candidates = [];
@@ -44,17 +55,29 @@ unset($_SESSION['flash']);
     <?php endif; ?>
 
     <h2>Manage Candidates</h2>
-    <p>Add new candidates and review the current list.</p>
+    <p>Add new candidates - either from registered students or manual entry.</p>
 
     <form action="/voting_system/backend/add_candidate.php" method="post" enctype="multipart/form-data">
+      <div style="background-color: #f0f0f0; padding: 15px; border-radius: 5px; margin-bottom: 20px;">
+        <p style="margin: 0; font-size: 14px; color: #555;"><strong>Add Candidate</strong> - Select an existing student OR manually enter candidate details.</p>
+      </div>
+
       <div class="form-group">
-        <label for="student_id">Student</label>
-        <select id="student_id" class="form-control" name="student_id" required>
-          <option value="">Select an existing student</option>
+        <label for="student_id">Select Existing Student (Optional)</label>
+        <select id="student_id" class="form-control" name="student_id" onchange="populateFromStudent()">
+          <option value="">--- Manual Entry (No Student) ---</option>
           <?php foreach ($students as $student): ?>
-            <option value="<?= (int)$student['student_id'] ?>"><?= htmlspecialchars($student['reg_no'] . ' — ' . $student['full_name'] . ' (' . $student['department'] . ')') ?></option>
+            <option value="<?= (int)$student['student_id'] ?>" data-name="<?= htmlspecialchars($student['full_name']) ?>" data-dept="<?= htmlspecialchars($student['department']) ?>">
+              <?= htmlspecialchars($student['reg_no'] . ' — ' . $student['full_name'] . ' (' . $student['department'] . ')') ?>
+            </option>
           <?php endforeach; ?>
         </select>
+        <small style="color: #666; display: block; margin-top: 5px;">Selecting a student will auto-fill their name and department.</small>
+      </div>
+
+      <div class="form-group">
+        <label for="candidate_name">Candidate Name *</label>
+        <input id="candidate_name" class="form-control" type="text" name="candidate_name" placeholder="Enter full name of candidate" required>
       </div>
 
       <div class="form-group">
@@ -65,6 +88,21 @@ unset($_SESSION['flash']);
             <option value="<?= $position['position_id'] ?>"><?= htmlspecialchars($position['position_name']) ?></option>
           <?php endforeach; ?>
         </select>
+      </div>
+
+      <div class="form-group">
+        <label for="department_id">Department (Optional)</label>
+        <select id="department_id" class="form-control" name="department_id">
+          <option value="">--- Select a department ---</option>
+          <?php foreach ($departments as $dept): ?>
+            <option value="<?= $dept['department_id'] ?>"><?= htmlspecialchars($dept['name']) ?></option>
+          <?php endforeach; ?>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="department">Department Name (Text)</label>
+        <input id="department" class="form-control" type="text" name="department" placeholder="Department name (auto-filled if student selected)">
       </div>
 
       <div class="form-group">
@@ -89,6 +127,23 @@ unset($_SESSION['flash']);
 
       <button class="button button-primary" type="submit">Add Candidate</button>
     </form>
+
+    <script>
+    function populateFromStudent() {
+      const selectElement = document.getElementById('student_id');
+      const candidateName = document.getElementById('candidate_name');
+      const department = document.getElementById('department');
+      
+      if (selectElement.value) {
+        const selectedOption = selectElement.options[selectElement.selectedIndex];
+        candidateName.value = selectedOption.getAttribute('data-name');
+        department.value = selectedOption.getAttribute('data-dept');
+      } else {
+        candidateName.value = '';
+        department.value = '';
+      }
+    }
+    </script>
 
     <?php if (!empty($candidates)): ?>
       <table class="data-table" style="margin-top: 22px;">

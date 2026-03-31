@@ -1,3 +1,16 @@
+<?php 
+session_start();
+// Prevent students from accessing admin login
+if (isset($_SESSION['student_id']) && !isset($_SESSION['admin'])) {
+    header('Location: /voting_system/frontend/dashboard.php');
+    exit;
+}
+// If already admin, redirect to dashboard
+if (isset($_SESSION['admin'])) {
+    header('Location: /voting_system/frontend/admin_dashboard.php');
+    exit;
+}
+?>
 <?php include '../includes/header.php'; ?>
 
 <div class="page-center">
