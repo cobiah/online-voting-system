@@ -7,9 +7,10 @@ RUN composer install --no-dev --prefer-dist --no-interaction --optimize-autoload
 FROM php:8.2-apache
 
 RUN apt-get update \
-    && apt-get install -y git unzip libssl-dev pkg-config \
+    && apt-get install -y --no-install-recommends $PHPIZE_DEPS libssl-dev pkg-config \
     && pecl install mongodb \
     && docker-php-ext-enable mongodb \
+    && apt-get purge -y --auto-remove $PHPIZE_DEPS \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /var/www/html
