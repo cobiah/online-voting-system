@@ -8,7 +8,7 @@ FROM php:8.2-apache
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends $PHPIZE_DEPS libssl-dev pkg-config \
-    && pecl install mongodb \
+    && pecl install mongodb-1.21.5 \
     && docker-php-ext-enable mongodb \
     && apt-get purge -y --auto-remove $PHPIZE_DEPS \
     && rm -rf /var/lib/apt/lists/*
