@@ -108,6 +108,7 @@ Required:
 
 Recommended:
 - `APP_BASE_PATH` = empty string on Render
+- `PRESENTATION_MODE` = `1` for demo-only presentation without a live database
 - `DEFAULT_ADMIN_USERNAME`
 - `DEFAULT_ADMIN_PASSWORD`
 - `DEFAULT_ADMIN_EMAIL`
@@ -117,6 +118,19 @@ Local XAMPP example:
 
 Render example:
 - `APP_BASE_PATH=`
+- `PRESENTATION_MODE=1`
+
+### Presentation mode
+If you want the public pages to remain usable during demos even when the external database is unavailable, set:
+
+```env
+PRESENTATION_MODE=1
+```
+
+In presentation mode:
+- the homepage can show sample upcoming elections
+- the public results page can show demo results
+- database connection failures no longer hard-stop those public presentation pages
 
 ### Deploy with Blueprint
 1. Push this repository to GitHub or GitLab.

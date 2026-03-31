@@ -8,6 +8,8 @@ services:
     envVars:
       - key: APP_BASE_PATH
         value: ""
+      - key: PRESENTATION_MODE
+        value: "0"
       - key: DB_HOST
         sync: false
       - key: DB_PORT

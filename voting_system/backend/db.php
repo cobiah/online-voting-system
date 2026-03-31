@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/../includes/app.php';
+require_once __DIR__ . '/../includes/presentation.php';
 $host = getenv('DB_HOST') ?: '127.0.0.1';
 $port = getenv('DB_PORT') ?: 3306;
 $user = getenv('DB_USER') ?: 'root';
@@ -283,7 +284,12 @@ try {
     ensure_default_admin($conn);
     // Voting open/close is now controlled only by admin actions.
 } catch (mysqli_sql_exception $e) {
-    die('Database connection failed: ' . $e->getMessage() . '. Make sure MySQL user/password in backend/db.php or environment variables are correct.');
+    if (presentation_mode_enabled()) {
+        $conn = null;
+        $db_error = $e->getMessage();
+    } else {
+        die('Database connection failed: ' . $e->getMessage() . '. Make sure MySQL user/password in backend/db.php or environment variables are correct.');
+    }
 }
 
 

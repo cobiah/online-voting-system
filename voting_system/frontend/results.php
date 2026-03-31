@@ -4,22 +4,32 @@ include '../includes/header.php';
 
 $results = [];
 $positionTotals = [];
+$isPresentation = presentation_mode_enabled() && !database_ready($conn);
 
-$sql = "SELECT c.candidate_id, c.name, c.image_url, p.position_name, COUNT(v.vote_id) AS total_votes
-        FROM candidates c
-        JOIN positions p ON c.position_id = p.position_id
-        LEFT JOIN votes v ON c.candidate_id = v.candidate_id
-        GROUP BY p.position_name, c.candidate_id, c.name, c.image_url
-        ORDER BY p.position_name, total_votes DESC";
+if ($isPresentation) {
+    $results = presentation_public_results();
+    foreach ($results as $position => $candidates) {
+        foreach ($candidates as $row) {
+            $positionTotals[$position] = ($positionTotals[$position] ?? 0) + (int) $row['total_votes'];
+        }
+    }
+} else {
+    $sql = "SELECT c.candidate_id, c.name, c.image_url, p.position_name, COUNT(v.vote_id) AS total_votes
+            FROM candidates c
+            JOIN positions p ON c.position_id = p.position_id
+            LEFT JOIN votes v ON c.candidate_id = v.candidate_id
+            GROUP BY p.position_name, c.candidate_id, c.name, c.image_url
+            ORDER BY p.position_name, total_votes DESC";
 
-$res = $conn->query($sql);
-if (!$res) {
-    die('Database error: ' . $conn->error);
-}
-while ($row = $res->fetch_assoc()) {
-    $position = $row['position_name'];
-    $results[$position][] = $row;
-    $positionTotals[$position] = ($positionTotals[$position] ?? 0) + (int)$row['total_votes'];
+    $res = $conn->query($sql);
+    if (!$res) {
+        die('Database error: ' . $conn->error);
+    }
+    while ($row = $res->fetch_assoc()) {
+        $position = $row['position_name'];
+        $results[$position][] = $row;
+        $positionTotals[$position] = ($positionTotals[$position] ?? 0) + (int)$row['total_votes'];
+    }
 }
 ?>
 
@@ -29,6 +39,13 @@ while ($row = $res->fetch_assoc()) {
   <section class="panel">
     <h2>Election Results</h2>
     <p>Current vote totals by candidate.</p>
+
+    <?php if ($isPresentation): ?>
+      <div class="alert info">
+        <span class="icon">i</span>
+        <span><?= htmlspecialchars(presentation_notice()) ?></span>
+      </div>
+    <?php endif; ?>
 
     <?php if (empty($results)): ?>
       <div class="alert error">

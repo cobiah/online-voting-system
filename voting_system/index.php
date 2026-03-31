@@ -3,12 +3,18 @@ include __DIR__ . '/backend/db.php';
 
 $elections = [];
 $electionsError = null;
-$res = $conn->query("SELECT election_id, title, description, start_date, end_date FROM elections WHERE is_active = 1 ORDER BY start_date ASC, created_at DESC");
-if ($res === false) {
-    $electionsError = 'Unable to load upcoming elections. Please try again later.';
+$isPresentation = presentation_mode_enabled() && !database_ready($conn);
+
+if ($isPresentation) {
+    $elections = presentation_elections();
 } else {
-    while ($row = $res->fetch_assoc()) {
-        $elections[] = $row;
+    $res = $conn->query("SELECT election_id, title, description, start_date, end_date FROM elections WHERE is_active = 1 ORDER BY start_date ASC, created_at DESC");
+    if ($res === false) {
+        $electionsError = 'Unable to load upcoming elections. Please try again later.';
+    } else {
+        while ($row = $res->fetch_assoc()) {
+            $elections[] = $row;
+        }
     }
 }
 ?><!DOCTYPE html>
@@ -98,6 +104,13 @@ if ($res === false) {
         <div class="alert error">
           <span class="icon">⚠️</span>
           <span><?= htmlspecialchars($electionsError) ?></span>
+        </div>
+      <?php endif; ?>
+
+      <?php if ($isPresentation): ?>
+        <div class="alert info">
+          <span class="icon">i</span>
+          <span><?= htmlspecialchars(presentation_notice()) ?></span>
         </div>
       <?php endif; ?>
 
