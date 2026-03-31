@@ -17,12 +17,12 @@ if ($res === false) {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Secure Voting System</title>
-  <link rel="stylesheet" href="/voting_system/assets/css/style.css">
+  <link rel="stylesheet" href="<?= htmlspecialchars(app_url('assets/css/style.css')) ?>">
 </head>
 <body>
   <header class="site-header">
     <div class="site-brand">
-      <img src="/voting_system/assets/images/logo.png" alt="Voting System Logo">
+      <img src="<?= htmlspecialchars(app_url('assets/images/logo.png')) ?>" alt="Voting System Logo">
       <div>
         <h1>Secure Voting System</h1>
         <p style="margin:0; font-size:0.85rem; color: rgba(0,0,0,0.6);">Tertiary Institution Elections</p>
@@ -30,12 +30,12 @@ if ($res === false) {
     </div>
 
     <nav class="site-nav">
-      <a href="/voting_system/index.php" class="active">Home</a>
-      <a href="/voting_system/frontend/vote.php">Elections</a>
+      <a href="<?= htmlspecialchars(app_url('index.php')) ?>" class="active">Home</a>
+      <a href="<?= htmlspecialchars(app_url('frontend/vote.php')) ?>">Elections</a>
       <a href="#how">How It Works</a>
-      <a href="/voting_system/frontend/results.php">Results</a>
-      <a href="/voting_system/frontend/login.php" class="button button-secondary">Login</a>
-      <a href="/voting_system/frontend/register.php" class="button button-primary">Register</a>
+      <a href="<?= htmlspecialchars(app_url('frontend/results.php')) ?>">Results</a>
+      <a href="<?= htmlspecialchars(app_url('frontend/login.php')) ?>" class="button button-secondary">Login</a>
+      <a href="<?= htmlspecialchars(app_url('frontend/register.php')) ?>" class="button button-primary">Register</a>
     </nav>
   </header>
 
@@ -47,7 +47,7 @@ if ($res === false) {
           <p>Cast your vote in just a few clicks. Our platform makes elections fast, transparent, and accessible for everyone.</p>
 
           <div class="hero-buttons">
-            <a href="/voting_system/frontend/vote.php" class="button button-primary">Vote Now</a>
+            <a href="<?= htmlspecialchars(app_url('frontend/vote.php')) ?>" class="button button-primary">Vote Now</a>
             <a href="#how" class="button button-secondary">Learn More</a>
           </div>
         </div>
@@ -91,7 +91,7 @@ if ($res === false) {
           <h2>Upcoming Elections</h2>
           <p>Make your voice heard in the next election — check the schedules and candidates below.</p>
         </div>
-        <a href="/voting_system/frontend/vote.php" class="button button-secondary view-all">View All Elections</a>
+        <a href="<?= htmlspecialchars(app_url('frontend/vote.php')) ?>" class="button button-secondary view-all">View All Elections</a>
       </div>
 
       <?php if (!empty($electionsError)): ?>
@@ -111,7 +111,7 @@ if ($res === false) {
                 &ndash;
                 <?= htmlspecialchars($election['end_date'] ? date('F j, Y', strtotime($election['end_date'])) : 'TBD') ?>
               </p>
-              <a href="/voting_system/frontend/vote.php" class="button button-primary">Vote Now</a>
+              <a href="<?= htmlspecialchars(app_url('frontend/vote.php')) ?>" class="button button-primary">Vote Now</a>
             </div>
           <?php endforeach; ?>
         </div>
@@ -154,6 +154,6 @@ if ($res === false) {
     <p>&copy; 2026 Secure Voting System | Embu University</p>
   </footer>
 
-  <script src="/voting_system/assets/js/script.js"></script>
+  <script src="<?= htmlspecialchars(app_url('assets/js/script.js')) ?>"></script>
 </body>
 </html>

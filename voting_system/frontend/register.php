@@ -14,7 +14,7 @@ while ($row = $deptRes->fetch_assoc()) {
     <h2>Create Account</h2>
     <p>Register to vote in the upcoming election.</p>
 
-    <form action="/voting_system/backend/register.php" method="post" onsubmit="return validateRegistration();">
+    <form action="<?= htmlspecialchars(app_url('backend/register.php')) ?>" method="post" onsubmit="return validateRegistration();">
       <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(generate_csrf_token()) ?>">
       <div class="form-group">
         <label for="reg_no">Student ID</label>

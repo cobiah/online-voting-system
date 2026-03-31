@@ -181,7 +181,7 @@ while ($row = $res->fetch_assoc()) {
         <span>Department ballot: <?= htmlspecialchars($studentDepartment) ?></span>
       </div>
 
-      <form id="voteForm" action="/voting_system/backend/vote.php" method="post" onsubmit="return confirmVote();">
+      <form id="voteForm" action="<?= htmlspecialchars(app_url('backend/vote.php')) ?>" method="post" onsubmit="return confirmVote();">
         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(generate_csrf_token()) ?>">
         <div class="card" style="margin-bottom: 18px;">
           <button type="button" class="button button-secondary" style="width:100%; text-align:left; margin-bottom: 12px;" onclick="toggleDepartmentAccordion()">

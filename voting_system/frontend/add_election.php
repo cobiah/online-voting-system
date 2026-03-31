@@ -54,7 +54,7 @@ unset($_SESSION['flash']);
       </div>
     <?php endif; ?>
 
-    <form action="/voting_system/backend/add_election.php" method="post">
+    <form action="<?= htmlspecialchars(app_url('backend/add_election.php')) ?>" method="post">
       <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(generate_csrf_token()) ?>">
       <input type="hidden" name="title" value="General Election">
       <input type="hidden" name="description" value="">
@@ -82,12 +82,12 @@ unset($_SESSION['flash']);
     </form>
 
     <div style="margin: 24px 0; display: flex; gap: 12px; flex-wrap: wrap;">
-      <form action="/voting_system/backend/toggle_election.php" method="post" style="margin:0;">
+      <form action="<?= htmlspecialchars(app_url('backend/toggle_election.php')) ?>" method="post" style="margin:0;">
         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(generate_csrf_token()) ?>">
         <input type="hidden" name="action" value="start_all">
         <button class="button button-primary" type="submit">Start Voting For All Departments</button>
       </form>
-      <form action="/voting_system/backend/toggle_election.php" method="post" style="margin:0;">
+      <form action="<?= htmlspecialchars(app_url('backend/toggle_election.php')) ?>" method="post" style="margin:0;">
         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(generate_csrf_token()) ?>">
         <input type="hidden" name="action" value="stop_all">
         <button class="button button-secondary" type="submit">Stop Voting For All Departments</button>
@@ -117,7 +117,7 @@ unset($_SESSION['flash']);
               <td><?= htmlspecialchars($election['duration_hours'] ? $election['duration_hours'] . ' hr' : 'N/A') ?></td>
               <td><?= $election['is_active'] ? '<span class="status-pill status-active">Active</span>' : '<span class="status-pill status-error">Draft</span>' ?></td>
               <td>
-                <form action="/voting_system/backend/toggle_election.php" method="post" style="display:inline;">
+                <form action="<?= htmlspecialchars(app_url('backend/toggle_election.php')) ?>" method="post" style="display:inline;">
                   <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(generate_csrf_token()) ?>">
                   <input type="hidden" name="election_id" value="<?= (int)$election['election_id'] ?>">
                   <input type="hidden" name="action" value="<?= $election['is_active'] ? 'stop' : 'start' ?>">

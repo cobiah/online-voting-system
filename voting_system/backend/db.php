@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/../includes/app.php';
 $host = getenv('DB_HOST') ?: '127.0.0.1';
 $port = getenv('DB_PORT') ?: 3306;
 $user = getenv('DB_USER') ?: 'root';
@@ -223,6 +224,44 @@ if (!function_exists('ensure_project_schema')) {
     }
 }
 
+if (!function_exists('ensure_default_admin')) {
+    function ensure_default_admin(mysqli $conn): void {
+        $defaultAdminUsername = trim((string) getenv('DEFAULT_ADMIN_USERNAME'));
+        $defaultAdminPassword = (string) getenv('DEFAULT_ADMIN_PASSWORD');
+        $defaultAdminEmail = trim((string) getenv('DEFAULT_ADMIN_EMAIL'));
+
+        if ($defaultAdminUsername === '' || $defaultAdminPassword === '') {
+            return;
+        }
+
+        $checkStmt = $conn->prepare('SELECT admin_id FROM admins WHERE username = ? LIMIT 1');
+        if (!$checkStmt) {
+            return;
+        }
+
+        $checkStmt->bind_param('s', $defaultAdminUsername);
+        $checkStmt->execute();
+        $checkStmt->store_result();
+        $exists = $checkStmt->num_rows > 0;
+        $checkStmt->close();
+
+        if ($exists) {
+            return;
+        }
+
+        $passwordHash = password_hash($defaultAdminPassword, PASSWORD_BCRYPT);
+        $insertStmt = $conn->prepare('INSERT INTO admins (username, password_hash, email) VALUES (?, ?, ?)');
+        if (!$insertStmt) {
+            return;
+        }
+
+        $email = $defaultAdminEmail !== '' ? $defaultAdminEmail : null;
+        $insertStmt->bind_param('sss', $defaultAdminUsername, $passwordHash, $email);
+        $insertStmt->execute();
+        $insertStmt->close();
+    }
+}
+
 try {
     if ($user === 'root' && $pass === '') {
         // XAMPP default root has no password
@@ -241,6 +280,7 @@ try {
 
     $conn->set_charset('utf8mb4');
     ensure_project_schema($conn);
+    ensure_default_admin($conn);
     // Voting open/close is now controlled only by admin actions.
 } catch (mysqli_sql_exception $e) {
     die('Database connection failed: ' . $e->getMessage() . '. Make sure MySQL user/password in backend/db.php or environment variables are correct.');

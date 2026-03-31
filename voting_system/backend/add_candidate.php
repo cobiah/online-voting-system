@@ -79,7 +79,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $destination = $uploadDir . '/' . $filename;
 
             if (move_uploaded_file($_FILES['image']['tmp_name'], $destination)) {
-                $imageUrl = '/voting_system/assets/images/candidates/' . $filename;
+                $imageUrl = app_url('assets/images/candidates/' . $filename);
             }
         }
     }

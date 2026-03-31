@@ -57,7 +57,7 @@ unset($_SESSION['flash']);
     <h2>Manage Candidates</h2>
     <p>Add new candidates - either from registered students or manual entry.</p>
 
-    <form action="/voting_system/backend/add_candidate.php" method="post" enctype="multipart/form-data">
+    <form action="<?= htmlspecialchars(app_url('backend/add_candidate.php')) ?>" method="post" enctype="multipart/form-data">
       <div style="background-color: #f0f0f0; padding: 15px; border-radius: 5px; margin-bottom: 20px;">
         <p style="margin: 0; font-size: 14px; color: #555;"><strong>Add Candidate</strong> - Select an existing student OR manually enter candidate details.</p>
       </div>
@@ -174,7 +174,7 @@ unset($_SESSION['flash']);
               <td><?= htmlspecialchars(ucfirst($candidate['gender'])) ?></td>
               <td><?= htmlspecialchars($candidate['manifesto'] ?? '') ?></td>
               <td>
-                <form method="post" action="/voting_system/backend/delete_candidate.php" style="display:inline;">
+                <form method="post" action="<?= htmlspecialchars(app_url('backend/delete_candidate.php')) ?>" style="display:inline;">
                   <input type="hidden" name="candidate_id" value="<?= (int)$candidate['candidate_id'] ?>">
                   <button class="button button-danger" type="submit">Delete</button>
                 </form>

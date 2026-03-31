@@ -55,7 +55,7 @@ unset($_SESSION['flash']);
       </div>
     <?php endif; ?>
 
-    <form action="/voting_system/backend/add_position.php" method="post">
+    <form action="<?= htmlspecialchars(app_url('backend/add_position.php')) ?>" method="post">
       <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(generate_csrf_token()) ?>">
       <div class="form-group">
         <label for="position_name">Position Name</label>
@@ -85,7 +85,7 @@ unset($_SESSION['flash']);
               <td><?= htmlspecialchars($position['position_name']) ?></td>
               <td><?= htmlspecialchars($position['description'] ?? '') ?></td>
               <td>
-                <form action="/voting_system/backend/delete_position.php" method="post" style="display:inline;">
+                <form action="<?= htmlspecialchars(app_url('backend/delete_position.php')) ?>" method="post" style="display:inline;">
                   <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(generate_csrf_token()) ?>">
                   <input type="hidden" name="position_id" value="<?= (int)$position['position_id'] ?>">
                   <button class="button button-danger" type="submit" onclick="return confirm('Delete this position and all related candidates/votes?');">Delete</button>
