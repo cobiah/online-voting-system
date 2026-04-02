@@ -8,7 +8,6 @@ if (!isset($_SESSION['admin'])) {
     exit;
 }
 
-// Prevent students from accessing admin panel
 if (isset($_SESSION['student_id']) && !isset($_SESSION['admin'])) {
     header('Location: dashboard.php');
     exit;
@@ -17,12 +16,7 @@ if (isset($_SESSION['student_id']) && !isset($_SESSION['admin'])) {
 include '../backend/db.php';
 include '../includes/header.php';
 
-$logs = [];
-$sql = "SELECT timestamp, action, user_id FROM audit_log ORDER BY timestamp DESC LIMIT 200";
-$res = $conn->query($sql);
-while ($row = $res->fetch_assoc()) {
-    $logs[] = $row;
-}
+$logs = database_ready($conn) ? db_get_audit_logs() : [];
 ?>
 
 <div class="dashboard">
@@ -34,7 +28,7 @@ while ($row = $res->fetch_assoc()) {
 
     <?php if (empty($logs)): ?>
       <div class="alert error">
-        <span class="icon">⚠️</span>
+        <span class="icon">&#9888;</span>
         <span>No audit logs found.</span>
       </div>
     <?php else: ?>
@@ -51,7 +45,7 @@ while ($row = $res->fetch_assoc()) {
             <tr>
               <td><?= htmlspecialchars($row['timestamp']) ?></td>
               <td><?= htmlspecialchars($row['action']) ?></td>
-              <td><?= htmlspecialchars($row['user_id']) ?></td>
+              <td><?= htmlspecialchars((string) $row['user_id']) ?></td>
             </tr>
           <?php endforeach; ?>
         </tbody>

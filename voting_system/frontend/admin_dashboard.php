@@ -48,7 +48,7 @@ $votesCast = db_count_votes();
       <a href="voter_management.php" class="button button-secondary">Voter Management</a>
       <a href="view_audit.php" class="button button-secondary">Audit Logs</a>
       <a href="../backend/tamper_check.php" class="button button-secondary">Tamper Check</a>
-      <a href="../backend/create_tamper_test.php" class="button" style="background-color: #ff9800; color: white;">🔍 Create Tamper Test Data</a>
+      <a href="../backend/create_tamper_test_mongo.php" class="button" style="background-color: #ff9800; color: white;">Create Tamper Test Data</a>
     </div>
   </section>
 </div>

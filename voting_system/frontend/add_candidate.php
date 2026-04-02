@@ -4,7 +4,6 @@ if (!isset($_SESSION['admin'])) {
     header('Location: admin_login.php');
     exit;
 }
-// Prevent students from accessing admin panel
 if (isset($_SESSION['student_id']) && !isset($_SESSION['admin'])) {
     header('Location: dashboard.php');
     exit;
@@ -45,7 +44,7 @@ unset($_SESSION['flash']);
   <section class="panel">
     <?php if ($flash): ?>
       <div class="alert <?= htmlspecialchars($flash['type']) ?>">
-        <span class="icon"><?= $flash['type'] === 'success' ? '✅' : '⚠️' ?></span>
+        <span class="icon"><?= $flash['type'] === 'success' ? '&#10003;' : '&#9888;' ?></span>
         <span><?= htmlspecialchars($flash['message']) ?></span>
       </div>
     <?php endif; ?>
@@ -54,6 +53,7 @@ unset($_SESSION['flash']);
     <p>Add new candidates - either from registered students or manual entry.</p>
 
     <form action="<?= htmlspecialchars(app_url('backend/add_candidate.php')) ?>" method="post" enctype="multipart/form-data">
+      <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(generate_csrf_token()) ?>">
       <div style="background-color: #f0f0f0; padding: 15px; border-radius: 5px; margin-bottom: 20px;">
         <p style="margin: 0; font-size: 14px; color: #555;"><strong>Add Candidate</strong> - Select an existing student OR manually enter candidate details.</p>
       </div>
@@ -63,8 +63,8 @@ unset($_SESSION['flash']);
         <select id="student_id" class="form-control" name="student_id" onchange="populateFromStudent()">
           <option value="">--- Manual Entry (No Student) ---</option>
           <?php foreach ($students as $student): ?>
-            <option value="<?= (int)$student['student_id'] ?>" data-name="<?= htmlspecialchars($student['full_name']) ?>" data-dept="<?= htmlspecialchars($student['department']) ?>">
-              <?= htmlspecialchars($student['reg_no'] . ' — ' . $student['full_name'] . ' (' . $student['department'] . ')') ?>
+            <option value="<?= (int) $student['student_id'] ?>" data-name="<?= htmlspecialchars($student['full_name']) ?>" data-dept="<?= htmlspecialchars($student['department']) ?>">
+              <?= htmlspecialchars($student['reg_no'] . ' - ' . $student['full_name'] . ' (' . $student['department'] . ')') ?>
             </option>
           <?php endforeach; ?>
         </select>
@@ -129,7 +129,7 @@ unset($_SESSION['flash']);
       const selectElement = document.getElementById('student_id');
       const candidateName = document.getElementById('candidate_name');
       const department = document.getElementById('department');
-      
+
       if (selectElement.value) {
         const selectedOption = selectElement.options[selectElement.selectedIndex];
         candidateName.value = selectedOption.getAttribute('data-name');
@@ -171,7 +171,8 @@ unset($_SESSION['flash']);
               <td><?= htmlspecialchars($candidate['manifesto'] ?? '') ?></td>
               <td>
                 <form method="post" action="<?= htmlspecialchars(app_url('backend/delete_candidate.php')) ?>" style="display:inline;">
-                  <input type="hidden" name="candidate_id" value="<?= (int)$candidate['candidate_id'] ?>">
+                  <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(generate_csrf_token()) ?>">
+                  <input type="hidden" name="candidate_id" value="<?= (int) $candidate['candidate_id'] ?>">
                   <button class="button button-danger" type="submit">Delete</button>
                 </form>
               </td>
@@ -181,7 +182,7 @@ unset($_SESSION['flash']);
       </table>
     <?php else: ?>
       <div class="alert">
-        <span class="icon">ℹ️</span>
+        <span class="icon">&#9432;</span>
         <span>No candidates have been added yet.</span>
       </div>
     <?php endif; ?>

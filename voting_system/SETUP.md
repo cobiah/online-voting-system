@@ -1,174 +1,113 @@
 # Voting System Setup Guide
 
-## 1. XAMPP preparation
-1. Start XAMPP Control Panel.
-2. Start Apache and MySQL.
-3. Confirm Apache on 127.0.0.1:80 and MySQL on 127.0.0.1:3306.
+## 1. Current Stack
+This project now uses:
+- PHP + Apache
+- MongoDB via `mongodb/mongodb`
+- optional presentation mode for public demo pages
 
-## 2. Ensure database exists
-1. Open MySQL Workbench (or phpMyAdmin).
-2. Connect with a valid user (default: `root`).
-3. If `voting_system` does not exist, create it:
-   ```sql
-   CREATE DATABASE voting_system;
-   USE voting_system;
-   SOURCE C:/xampp/htdocs/voting_system/databases/schema.sql;
-   ```
-4. Verify tables exist:
-   ```sql
-   SHOW TABLES;
-   DESCRIBE students;
-   DESCRIBE positions;
-   DESCRIBE candidates;
-   DESCRIBE votes;
-   DESCRIBE integrity;
-   DESCRIBE audit_log;
-   ```
+`databases/schema.sql` is a legacy MySQL artifact and is not used by the current runtime.
 
-## 3. db.php connection settings
-Edit `backend/db.php` as needed. Default config:
-- host: `127.0.0.1`
-- port: `3306`
-- user: `root`
-- pass: empty string (or set to MySQL root password)
-- database: `voting_system`
+## 2. Local Requirements
+1. Start Apache from XAMPP.
+2. Make sure Composer dependencies are installed.
+3. Provide a working MongoDB connection string.
 
-If your root account has a password, either set:
-- `DB_PASS` environment variable
-- or change the `DB_PASS` value in code
+Recommended tools:
+- XAMPP for Apache
+- Composer
+- MongoDB Atlas or a local MongoDB server
 
-Example fallback logic in `backend/db.php`:
-- For `root` with blank password, try blank first.
-- For non-root or explicit password, use that directly.
-
-## 4. MySQL Workbench "Access denied" fix
-1. In Workbench open connection configuration.
-2. Set Dev environment fields:
-   - MySQL hostname: `127.0.0.1`
-   - Port: `3306`
-   - Username: `root` (or service account)
-   - Password: leave blank if root no password; set password if root has one.
-3. Test connection.
-
-If still denied, run in query tab:
-```sql
-ALTER USER 'root'@'localhost' IDENTIFIED BY 'newPassword';
-FLUSH PRIVILEGES;
-```
-Then update `backend/db.php` or env accordingly.
-
-## 5. Recommended safer user (non-root)
-```sql
-CREATE USER 'voterapp'@'localhost' IDENTIFIED BY 'AppPass123';
-GRANT ALL PRIVILEGES ON voting_system.* TO 'voterapp'@'localhost';
-FLUSH PRIVILEGES;
-```
-In `backend/db.php` set user `voterapp`, pass `AppPass123`.
-
-## 6. App usage
-1. Open browser: `http://127.0.0.1/voting_system/` or `http://localhost/voting_system/`.
-2. Use frontend pages:
-   - `frontend/admin_login.php` (admin: `admin` / `admin123`)
-   - `frontend/register.php` and `frontend/login.php`
-   - `frontend/vote.php`
-   - `frontend/results.php`
-
-## 7. Troubleshooting
-- If white-screen or error, check Apache/PHP logs in XAMPP
-- Check `$_SESSION['flash']` messages on UI
-- Check Workbench with `SELECT * FROM audit_log ORDER BY log_id DESC LIMIT 10;`
-- Ensure `position_id` linkage in all code: `candidates.position_id`, `votes.position_id`.
-
-## 8. Deploying on Render
-
-This project is now prepared for Render with:
-- a `Dockerfile` for PHP + Apache + `mysqli`
-- a `render.yaml` Blueprint
-- environment-aware app URLs for both local XAMPP and root-domain deploys
-- optional default admin seeding via env vars
-
-### Recommended Render setup
-Render does not currently list PHP as a native runtime, so deploy this app as a Docker-based Web Service.
-
-### Files used for deploy
-- `Dockerfile`
-- `docker/render-entrypoint.sh`
-- `render.yaml`
-
-### Environment variables
-Set these in Render:
+## 3. Required Environment Variables
+Set these before running the app:
 
 Required:
-- `DB_HOST`
-- `DB_PORT` = `3306`
-- `DB_NAME`
-- `DB_USER`
-- `DB_PASS`
+- `MONGODB_URI`
+- `MONGODB_DB` default: `voting_system`
 - `VOTE_ENCRYPTION_KEY`
 
 Recommended:
-- `APP_BASE_PATH` = empty string on Render
-- `PRESENTATION_MODE` = `1` for demo-only presentation without a live database
+- `APP_BASE_PATH=/voting_system` for local XAMPP
+- `PRESENTATION_MODE=1` if you want the public pages to keep working with demo data when MongoDB is unavailable
 - `DEFAULT_ADMIN_USERNAME`
 - `DEFAULT_ADMIN_PASSWORD`
 - `DEFAULT_ADMIN_EMAIL`
 
-Local XAMPP example:
-- `APP_BASE_PATH=/voting_system`
+## 4. Install Dependencies
+From the project root run:
 
-Render example:
-- `APP_BASE_PATH=`
-- `PRESENTATION_MODE=1`
+```bash
+composer install
+```
 
-### Presentation mode
-If you want the public pages to remain usable during demos even when the external database is unavailable, set:
+The app expects `vendor/autoload.php` to exist.
+
+## 5. Database Boot Behavior
+On the first successful MongoDB connection, the app will:
+- seed default departments
+- seed default positions
+- optionally create a default admin account when `DEFAULT_ADMIN_USERNAME` and `DEFAULT_ADMIN_PASSWORD` are set
+
+There are no built-in hard-coded admin credentials in the current MongoDB flow.
+
+## 6. Local Usage
+1. Open `http://127.0.0.1/voting_system/` or `http://localhost/voting_system/`.
+2. Use these pages:
+   - `frontend/admin_login.php`
+   - `frontend/register.php`
+   - `frontend/login.php`
+   - `frontend/vote.php`
+   - `frontend/results.php`
+
+If you want admin login on a fresh setup, define:
+- `DEFAULT_ADMIN_USERNAME`
+- `DEFAULT_ADMIN_PASSWORD`
+
+## 7. Presentation Mode
+Set:
 
 ```env
 PRESENTATION_MODE=1
 ```
 
 In presentation mode:
-- the homepage can show sample upcoming elections
+- the homepage can show sample elections
 - the public results page can show demo results
-- database connection failures no longer hard-stop those public presentation pages
+- public presentation pages do not hard-fail when MongoDB is unavailable
 
-### Deploy with Blueprint
-1. Push this repository to GitHub or GitLab.
-2. In Render, choose `New` -> `Blueprint`.
-3. Select the repository.
-4. Review the generated `voting-system` web service.
-5. Fill in all secret env vars marked with `sync: false`.
-6. Deploy.
+## 8. Troubleshooting
+- If the app fails immediately, check that `vendor/autoload.php` exists.
+- If database pages fail, verify `MONGODB_URI` and `MONGODB_DB`.
+- Check `backend/health.php` for a quick MongoDB connectivity response.
+- Check flash messages in the UI for validation and action errors.
 
-### Manual Render service settings
-If you create the service manually instead of Blueprint:
-- Service type: `Web Service`
-- Runtime: `Docker`
-- Root directory: project root
-- Dockerfile path: `./Dockerfile`
-- Auto deploy: optional
-- Health check path: `/`
+## 9. Render Deployment
+This repository is configured for Docker-based deployment on Render.
 
-### Database import commands
-Create your MySQL database first, then import the schema:
+Files used:
+- `Dockerfile`
+- `docker/render-entrypoint.sh`
+- `render.yaml`
 
-```bash
-mysql -h <DB_HOST> -P 3306 -u <DB_USER> -p <DB_NAME> < databases/schema.sql
-```
+Required Render variables:
+- `MONGODB_URI`
+- `MONGODB_DB`
+- `VOTE_ENCRYPTION_KEY`
 
-If the database does not exist yet:
-
-```bash
-mysql -h <DB_HOST> -P 3306 -u <DB_USER> -p -e "CREATE DATABASE voting_system;"
-mysql -h <DB_HOST> -P 3306 -u <DB_USER> -p voting_system < databases/schema.sql
-```
-
-### First admin login
-If you set:
+Recommended Render variables:
+- `APP_BASE_PATH=`
+- `PRESENTATION_MODE=1` for demo-friendly public pages
 - `DEFAULT_ADMIN_USERNAME`
 - `DEFAULT_ADMIN_PASSWORD`
+- `DEFAULT_ADMIN_EMAIL`
 
-the app will automatically create that admin account on first successful database boot if the username does not already exist.
+### Deploy with Blueprint
+1. Push the repository to GitHub or GitLab.
+2. In Render choose `New` -> `Blueprint`.
+3. Select the repository.
+4. Fill in the secret environment variables.
+5. Deploy.
 
-### Important note about uploads
-Candidate images are written to `assets/images/candidates`. On Render, the filesystem is ephemeral by default, so uploaded images are lost on redeploy unless you attach a persistent disk and mount it to the same container path used by the app.
+### Important Upload Note
+Candidate images are written to `assets/images/candidates`.
+On Render the filesystem is ephemeral by default, so uploads are lost on redeploy unless you mount persistent storage.

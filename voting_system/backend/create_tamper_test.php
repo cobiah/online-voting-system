@@ -13,6 +13,10 @@ if (!isset($_SESSION['admin'])) {
     die('Unauthorized access. Admin login required.');
 }
 
+header('Location: create_tamper_test_mongo.php');
+exit;
+__halt_compiler();
+
 $results = [];
 $error_msg = null;
 

@@ -7,23 +7,14 @@ if (!isset($_SESSION['admin'])) {
     exit;
 }
 
-$sql = "SELECT s.reg_no,
-               s.full_name,
-               s.email,
-               COALESCE(d.name, s.department, 'Unknown') AS department,
-               s.is_locked,
-               COUNT(v.vote_id) AS votes_cast,
-               s.created_at
-        FROM students s
-        LEFT JOIN departments d ON s.department_id = d.department_id
-        LEFT JOIN votes v ON s.student_id = v.student_id
-        GROUP BY s.student_id
-        ORDER BY s.full_name";
-
-$res = $conn->query($sql);
-if (!$res) {
-    die('Database error: ' . $conn->error);
+if (!database_ready($conn)) {
+    http_response_code(503);
+    header('Content-Type: text/plain; charset=utf-8');
+    echo "Database unavailable\n";
+    exit;
 }
+
+$students = db_get_students_admin();
 
 header('Content-Type: text/csv');
 header('Content-Disposition: attachment; filename="voter_list.csv"');
@@ -31,17 +22,18 @@ header('Content-Disposition: attachment; filename="voter_list.csv"');
 $output = fopen('php://output', 'w');
 fputcsv($output, ['Student ID', 'Name', 'Email', 'Department', 'Status', 'Votes Cast', 'Registered At']);
 
-while ($row = $res->fetch_assoc()) {
+foreach ($students as $row) {
     fputcsv($output, [
         $row['reg_no'],
         $row['full_name'],
         $row['email'],
         $row['department'],
-        $row['is_locked'] ? 'Locked' : 'Active',
-        $row['votes_cast'],
-        $row['created_at']
+        !empty($row['is_locked']) ? 'Locked' : 'Active',
+        (int) ($row['votes_cast'] ?? 0),
+        (string) ($row['created_at'] ?? ''),
     ]);
 }
 
 fclose($output);
 exit;
+?>

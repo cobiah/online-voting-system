@@ -2,56 +2,44 @@
   <h3>Student Panel</h3>
   <?php
     $studentHasVoted = false;
-    if (isset($_SESSION['student_id']) && isset($conn)) {
-        $stmt = $conn->prepare('SELECT COUNT(*) FROM votes WHERE student_id = ?');
-        if ($stmt) {
-            $stmt->bind_param('i', $_SESSION['student_id']);
-            $stmt->execute();
-            $stmt->bind_result($voteCount);
-            $stmt->fetch();
-            $stmt->close();
-            $studentHasVoted = $voteCount > 0;
-        }
+    if (isset($_SESSION['student_id']) && isset($conn) && database_ready($conn)) {
+        $studentHasVoted = db_count_votes_for_student((int) $_SESSION['student_id']) > 0;
     }
   ?>
   <nav class="accordion-nav">
     <?php $current = basename($_SERVER['PHP_SELF']); ?>
-    
-    <!-- Dashboard -->
+
     <div class="nav-item">
       <a href="dashboard.php" class="nav-link <?= $current === 'dashboard.php' ? 'active' : '' ?>">
-        <span class="icon">🏠</span> Dashboard
+        <span class="icon">&#127968;</span> Dashboard
       </a>
     </div>
 
-    <!-- Voting -->
     <div class="nav-item">
       <?php if (!$studentHasVoted): ?>
         <a href="vote.php" class="nav-link <?= $current === 'vote.php' ? 'active' : '' ?>">
-          <span class="icon">🗳️</span> Vote
+          <span class="icon">&#128499;</span> Vote
         </a>
       <?php else: ?>
         <button class="nav-toggle active" onclick="toggleMenu(this)">
-          <span class="icon">🗳️</span> Voting
-          <span class="arrow">▼</span>
+          <span class="icon">&#128499;</span> Voting
+          <span class="arrow">&#9660;</span>
         </button>
         <div class="submenu" style="display: block;">
-          <span class="submenu-link" style="padding: 10px 12px 10px 40px; color: #28a745; cursor: default;">✅ Voted</span>
+          <span class="submenu-link" style="padding: 10px 12px 10px 40px; color: #28a745; cursor: default;">&#10003; Voted</span>
         </div>
       <?php endif; ?>
     </div>
 
-    <!-- Results -->
     <div class="nav-item">
       <a href="results.php" class="nav-link <?= $current === 'results.php' ? 'active' : '' ?>">
-        <span class="icon">📊</span> Results
+        <span class="icon">&#128202;</span> Results
       </a>
     </div>
 
-    <!-- Logout -->
     <div class="nav-item" style="margin-top: 20px;">
       <a href="../backend/logout.php" class="nav-link logout-link">
-        <span class="icon">🚪</span> Logout
+        <span class="icon">&#128682;</span> Logout
       </a>
     </div>
   </nav>
