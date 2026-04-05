@@ -32,6 +32,35 @@ function db_now(): string
     return date('Y-m-d H:i:s');
 }
 
+function db_mongodb_extension_version(): string
+{
+    $version = phpversion('mongodb');
+    return $version === false ? 'not-installed' : $version;
+}
+
+function db_validate_runtime(string $mongoUri): void
+{
+    if ($mongoUri === '') {
+        throw new RuntimeException('MONGODB_URI is not set.');
+    }
+
+    if (!preg_match('/^mongodb(\\+srv)?:\\/\\//i', $mongoUri)) {
+        throw new RuntimeException('MONGODB_URI must start with mongodb:// or mongodb+srv://.');
+    }
+
+    $extensionVersion = db_mongodb_extension_version();
+    if ($extensionVersion === 'not-installed') {
+        throw new RuntimeException('The PHP MongoDB extension is not installed.');
+    }
+
+    if (version_compare($extensionVersion, '2.2.0', '<')) {
+        throw new RuntimeException(
+            'The installed PHP MongoDB extension version ' . $extensionVersion
+            . ' is too old for this project. Upgrade ext-mongodb to 2.2 or newer, or switch to a newer PHP/XAMPP runtime.'
+        );
+    }
+}
+
 function db(?Database $conn): ?Database
 {
     return $conn;
@@ -622,12 +651,14 @@ function db_get_public_results(): array
 }
 
 try {
+    $isRender = filter_var(getenv('RENDER') ?: false, FILTER_VALIDATE_BOOLEAN);
     $mongoUri = trim((string) getenv('MONGODB_URI'));
     $mongoDbName = trim((string) (getenv('MONGODB_DB') ?: 'voting_system'));
 
-    if ($mongoUri === '') {
-        throw new RuntimeException('MONGODB_URI is not set.');
+    if ($mongoUri === '' && !$isRender) {
+        $mongoUri = 'mongodb://localhost:27017';
     }
+    db_validate_runtime($mongoUri);
 
     $client = new Client($mongoUri);
     $client->selectDatabase('admin')->command(['ping' => 1]);
