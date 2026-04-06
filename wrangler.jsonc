@@ -1,0 +1,14 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "flat-dew-1472",
+  "compatibility_date": "2026-04-06",
+  "observability": {
+    "enabled": true
+  },
+  "assets": {
+    "directory": "dashboard"
+  },
+  "compatibility_flags": [
+    "nodejs_compat"
+  ]
+}
