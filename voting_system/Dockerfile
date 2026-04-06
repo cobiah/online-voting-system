@@ -10,21 +10,23 @@ RUN apt-get update \
 WORKDIR /var/www/html
 
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
-COPY . /tmp/src
+COPY . /var/www/html
 
 RUN set -eux; \
-    if [ -f /tmp/src/index.php ] && [ -f /tmp/src/composer.json ]; then \
-        APP_SRC="/tmp/src"; \
-    elif [ -f /tmp/src/voting_system/index.php ] && [ -f /tmp/src/voting_system/composer.json ]; then \
-        APP_SRC="/tmp/src/voting_system"; \
+    if [ -f /var/www/html/composer.json ] && [ -f /var/www/html/index.php ]; then \
+        APP_DIR="/var/www/html"; \
+    elif [ -f /var/www/html/voting_system/composer.json ] && [ -f /var/www/html/voting_system/index.php ]; then \
+        APP_DIR="/var/www/html/voting_system"; \
     else \
         echo "Unable to locate application root in build context."; \
-        find /tmp/src -maxdepth 2 -type f | head -n 100; \
+        find /var/www/html -maxdepth 3 -type f | head -n 120; \
         exit 1; \
     fi; \
-    cp -a "${APP_SRC}/." /var/www/html/; \
-    rm -rf /tmp/src; \
+    cd "${APP_DIR}"; \
     composer install --no-dev --prefer-dist --no-interaction --optimize-autoloader --ignore-platform-req=ext-mongodb; \
+    if [ "${APP_DIR}" != "/var/www/html" ]; then \
+        cp -a "${APP_DIR}/." /var/www/html/; \
+    fi; \
     mkdir -p /var/www/html/assets/images/candidates; \
     chown -R www-data:www-data /var/www/html/assets/images/candidates
 
