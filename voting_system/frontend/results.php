@@ -4,7 +4,7 @@ include '../includes/header.php';
 
 $results = [];
 $positionTotals = [];
-$isPresentation = presentation_mode_enabled() && !database_ready($conn);
+$isPresentation = !database_ready($conn);
 
 if ($isPresentation) {
     $results = presentation_public_results();

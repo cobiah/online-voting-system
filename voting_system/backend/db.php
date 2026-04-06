@@ -6,13 +6,9 @@ require_once __DIR__ . '/../includes/presentation.php';
 $autoloadPath = dirname(__DIR__) . '/vendor/autoload.php';
 
 if (!file_exists($autoloadPath)) {
-    if (presentation_mode_enabled()) {
-        $conn = null;
-        $db_error = 'Composer dependencies are missing.';
-        return;
-    }
-
-    die('Database connection failed: Composer dependencies are missing. Run composer install during deploy.');
+    $conn = null;
+    $db_error = 'Composer dependencies are missing.';
+    return;
 }
 
 require_once $autoloadPath;
@@ -366,6 +362,42 @@ function db_count_votes_for_student(int $studentId): int
     return count(db_find_many('votes', ['student_id' => $studentId]));
 }
 
+function db_get_students_admin(): array
+{
+    $departments = db_get_departments();
+    $departmentMap = [];
+    foreach ($departments as $department) {
+        $departmentMap[$department['department_id']] = $department['name'];
+    }
+
+    $voteCounts = [];
+    foreach (db_find_many('votes') as $vote) {
+        $studentId = (int) ($vote['student_id'] ?? 0);
+        if ($studentId > 0) {
+            $voteCounts[$studentId] = ($voteCounts[$studentId] ?? 0) + 1;
+        }
+    }
+
+    $rows = [];
+    foreach (db_find_many('students') as $student) {
+        $studentId = (int) ($student['student_id'] ?? 0);
+        $departmentId = (int) ($student['department_id'] ?? 0);
+        $rows[] = [
+            'student_id' => $studentId,
+            'reg_no' => (string) ($student['reg_no'] ?? ''),
+            'full_name' => (string) ($student['full_name'] ?? ''),
+            'email' => (string) ($student['email'] ?? ''),
+            'department' => $departmentMap[$departmentId] ?? (string) ($student['department'] ?? 'Unknown'),
+            'is_locked' => (int) ($student['is_locked'] ?? 0),
+            'votes_cast' => (int) ($voteCounts[$studentId] ?? 0),
+            'created_at' => (string) ($student['created_at'] ?? ''),
+        ];
+    }
+
+    usort($rows, static fn(array $a, array $b): int => strcmp($a['full_name'], $b['full_name']));
+    return $rows;
+}
+
 function db_get_current_election(): ?array
 {
     $rows = db_find_many('elections', ['is_active' => 1]);
@@ -650,6 +682,169 @@ function db_get_public_results(): array
     return $rows;
 }
 
+function db_get_admin_results_flat(): array
+{
+    $departments = db_get_departments();
+    $positions = db_get_positions();
+    $departmentMap = [];
+    $positionMap = [];
+
+    foreach ($departments as $department) {
+        $departmentMap[$department['department_id']] = $department['name'];
+    }
+
+    foreach ($positions as $position) {
+        $positionMap[$position['position_id']] = $position['position_name'];
+    }
+
+    $voteTotals = [];
+    foreach (db_find_many('votes') as $vote) {
+        $candidateId = (int) ($vote['candidate_id'] ?? 0);
+        if ($candidateId > 0) {
+            $voteTotals[$candidateId] = ($voteTotals[$candidateId] ?? 0) + 1;
+        }
+    }
+
+    $rows = [];
+    foreach (db_find_many('candidates') as $candidate) {
+        $departmentId = (int) ($candidate['department_id'] ?? 0);
+        $positionId = (int) ($candidate['position_id'] ?? 0);
+        $candidateId = (int) ($candidate['candidate_id'] ?? 0);
+        $rows[] = [
+            'department_id' => $departmentId,
+            'department' => $departmentMap[$departmentId] ?? (string) ($candidate['department'] ?? 'Unknown'),
+            'position_id' => $positionId,
+            'position_name' => $positionMap[$positionId] ?? '',
+            'candidate_id' => $candidateId,
+            'candidate_name' => (string) ($candidate['name'] ?? ''),
+            'total_votes' => (int) ($voteTotals[$candidateId] ?? 0),
+        ];
+    }
+
+    usort($rows, static function (array $a, array $b): int {
+        return strcmp($a['department'], $b['department'])
+            ?: strcmp($a['position_name'], $b['position_name'])
+            ?: ($b['total_votes'] <=> $a['total_votes'])
+            ?: strcmp($a['candidate_name'], $b['candidate_name']);
+    });
+
+    return $rows;
+}
+
+function db_get_admin_winners_flat(): array
+{
+    $rows = db_get_admin_results_flat();
+    $winners = [];
+    $topScores = [];
+
+    foreach ($rows as $row) {
+        $key = $row['department'] . '||' . $row['position_name'];
+        $votes = (int) $row['total_votes'];
+        if (!isset($topScores[$key]) || $votes > $topScores[$key]) {
+            $topScores[$key] = $votes;
+            $winners[$key] = [$row];
+        } elseif ($votes === $topScores[$key]) {
+            $winners[$key][] = $row;
+        }
+    }
+
+    $flat = [];
+    foreach ($winners as $winnerRows) {
+        foreach ($winnerRows as $winner) {
+            $flat[] = $winner;
+        }
+    }
+
+    return $flat;
+}
+
+function db_get_audit_logs(int $limit = 200): array
+{
+    $rows = db_find_many('audit_log');
+    usort($rows, static fn(array $a, array $b): int => strcmp((string) ($b['timestamp'] ?? ''), (string) ($a['timestamp'] ?? '')));
+    $rows = array_slice($rows, 0, max(0, $limit));
+
+    return array_map(static fn(array $row): array => [
+        'timestamp' => (string) ($row['timestamp'] ?? ''),
+        'action' => (string) ($row['action'] ?? ''),
+        'user_id' => (int) ($row['user_id'] ?? 0),
+    ], $rows);
+}
+
+function db_delete_integrity_for_vote_ids(array $voteIds): void
+{
+    $voteIds = array_values(array_filter(array_map('intval', $voteIds), static fn(int $id): bool => $id > 0));
+    if ($voteIds !== []) {
+        db_delete_many('integrity', ['vote_id' => ['$in' => $voteIds]]);
+    }
+}
+
+function db_delete_votes_by_filter(array $filter): int
+{
+    $votes = db_find_many('votes', $filter);
+    $voteIds = array_map(static fn(array $row): int => (int) ($row['vote_id'] ?? 0), $votes);
+    db_delete_integrity_for_vote_ids($voteIds);
+    return $votes === [] ? 0 : db_delete_many('votes', $filter);
+}
+
+function db_clear_all_votes(): int
+{
+    $deleted = count(db_find_many('votes'));
+    if ($deleted > 0) {
+        db_delete_many('votes', []);
+    }
+    db_delete_many('integrity', []);
+    return $deleted;
+}
+
+function db_set_student_lock(int $studentId, bool $locked): int
+{
+    return db_update_one('students', ['student_id' => $studentId], ['$set' => ['is_locked' => $locked ? 1 : 0]]);
+}
+
+function db_reset_student_votes(int $studentId): int
+{
+    return db_delete_votes_by_filter(['student_id' => $studentId]);
+}
+
+function db_get_tamper_issues(): array
+{
+    $integrityRows = db_find_many('integrity');
+    $issues = [];
+
+    foreach ($integrityRows as $integrity) {
+        $voteId = (int) ($integrity['vote_id'] ?? 0);
+        if ($voteId <= 0) {
+            continue;
+        }
+
+        $vote = db_find_one('votes', ['vote_id' => $voteId]);
+        if (!$vote) {
+            $issues[] = [
+                'vote_id' => $voteId,
+                'reason' => 'Integrity record exists without a matching vote.',
+            ];
+            continue;
+        }
+
+        $expectedHash = hash(
+            'sha256',
+            (int) $vote['student_id'] . '-' . (int) $vote['position_id'] . '-' . (int) $vote['candidate_id'] . '-' . (int) $vote['vote_id']
+        );
+
+        $storedHash = (string) ($integrity['vote_hash'] ?? '');
+        if ($storedHash === '' || !hash_equals($expectedHash, $storedHash)) {
+            $issues[] = [
+                'vote_id' => $voteId,
+                'reason' => 'Vote hash does not match the stored vote contents.',
+            ];
+        }
+    }
+
+    usort($issues, static fn(array $a, array $b): int => ((int) $a['vote_id']) <=> ((int) $b['vote_id']));
+    return $issues;
+}
+
 try {
     $isRender = filter_var(getenv('RENDER') ?: false, FILTER_VALIDATE_BOOLEAN);
     $mongoUri = trim((string) getenv('MONGODB_URI'));
@@ -668,10 +863,6 @@ try {
     ensure_default_admin();
     deactivate_expired_elections();
 } catch (Throwable $e) {
-    if (presentation_mode_enabled()) {
-        $conn = null;
-        $db_error = $e->getMessage();
-    } else {
-        die('Database connection failed: ' . $e->getMessage() . '. Make sure MongoDB environment variables are correct.');
-    }
+    $conn = null;
+    $db_error = $e->getMessage();
 }

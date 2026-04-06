@@ -3,7 +3,7 @@ include __DIR__ . '/backend/db.php';
 
 $elections = [];
 $electionsError = null;
-$isPresentation = presentation_mode_enabled() && !database_ready($conn);
+$isPresentation = !database_ready($conn);
 
 if ($isPresentation) {
     $elections = presentation_elections();

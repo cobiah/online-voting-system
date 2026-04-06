@@ -4,12 +4,12 @@ services:
     runtime: docker
     plan: free
     autoDeploy: true
-    healthCheckPath: /
+    healthCheckPath: /index.html
     envVars:
       - key: APP_BASE_PATH
         value: ""
       - key: PRESENTATION_MODE
-        value: "0"
+        value: "1"
       - key: MONGODB_URI
         sync: false
       - key: MONGODB_DB
