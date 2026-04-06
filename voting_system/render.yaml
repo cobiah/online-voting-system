@@ -1,6 +1,7 @@
 services:
   - type: web
     name: voting-system
+    rootDir: voting_system
     runtime: docker
     plan: free
     autoDeploy: true
